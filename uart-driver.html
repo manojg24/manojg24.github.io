@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UART Driver — Manoj Gangaraja</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+  }
+
+  .nav-back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--accent); }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 8rem 3rem 5rem;
+  }
+
+  /* HERO */
+  .project-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .project-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-title span { color: var(--accent); }
+
+  .project-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+
+  /* SECTIONS */
+  .section {
+    margin-bottom: 4rem;
+    padding-bottom: 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 15px;
+    color: #aaa;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  p strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ARCHITECTURE */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #888;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .arch-diagram .highlight { color: var(--accent); }
+  .arch-diagram .highlight2 { color: var(--accent2); }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-filename {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  pre {
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: #ccc;
+  }
+
+  .kw { color: #ff79c6; }
+  .cm { color: #555; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .nm { color: #bd93f9; }
+  .st { color: #f1fa8c; }
+  .ac { color: var(--accent); }
+
+  /* DECISION CARDS */
+  .decisions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .decision-q {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .decision-a {
+    font-size: 14px;
+    color: #aaa;
+    line-height: 1.6;
+  }
+
+  /* LEARNINGS */
+  .learning-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .learning-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    border-radius: 4px;
+  }
+
+  .learning-icon {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+
+  .learning-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+  }
+
+  .learning-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* LINKS */
+  .project-links {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: #00dd77; }
+
+  .btn-outline {
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* VIDEO PLACEHOLDER */
+  .video-placeholder {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3rem 2rem;
+    text-align: center;
+    margin: 1.5rem 0;
+  }
+
+  .video-icon {
+    font-family: var(--mono);
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .video-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .container { padding: 7rem 1.5rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">MG.dev</a>
+  <a href="index.html" class="nav-back">← back to portfolio</a>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="project-label">// embedded systems — May 2026</div>
+  <h1 class="project-title">Bare-Metal <span>UART Driver</span><br>on ATmega328P</h1>
+
+  <div class="project-meta">
+    <div class="meta-item">
+      <span class="meta-label">Platform</span>
+      <span class="meta-value">ATmega328P / Arduino Uno</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">Pure C / avr-gcc</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Baud Rate</span>
+      <span class="meta-value">9600</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Libraries</span>
+      <span class="meta-value">None — zero HAL</span>
+    </div>
+  </div>
+
+  <div class="project-tags">
+    <span class="tag">C</span>
+    <span class="tag">ATmega328P</span>
+    <span class="tag">UART</span>
+    <span class="tag">ISR</span>
+    <span class="tag">Ring Buffer</span>
+    <span class="tag">avr-gcc</span>
+    <span class="tag">avrdude</span>
+    <span class="tag">Bare-Metal</span>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="section">
+    <div class="section-label">01 — motivation</div>
+    <div class="section-title">Why I built this</div>
+    <p>Coming from 2 years of firmware development at Continental, I worked with UART, CAN, and LIN protocols daily — but always through AUTOSAR BSW layers and vendor HALs. I never had to think about what was happening at the register level.</p>
+    <p>I built this driver to answer a simple question: <strong>what actually happens when a byte travels over a wire?</strong> No libraries, no abstractions — just me, a datasheet, and the ATmega328P register map. It forced me to understand baud rate math, interrupt timing, and why a circular buffer is the right data structure for a UART receiver.</p>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section">
+    <div class="section-label">02 — architecture</div>
+    <div class="section-title">How it works</div>
+
+    <p>The driver has two independent data paths — RX and TX — both backed by ring buffers and driven by hardware interrupts.</p>
+
+    <div class="arch-diagram">
+<span class="highlight">// RX PATH</span>
+Laptop terminal
+    │  USB → serial
+    ▼
+<span class="highlight2">UDR0</span> (hardware receives byte)
+    │  USART_RX_vect fires
+    ▼
+<span class="highlight">ISR</span> reads UDR0, checks FE0/DOR0
+    │  stores in rx_buf[tail++]
+    ▼
+<span class="highlight2">RX Ring Buffer</span> [64 bytes]
+    │  main loop polls uart_available()
+    ▼
+<span class="highlight">Command Parser</span> accumulates until \n
+    │  strcmp("led on") / strcmp("led off")
+    ▼
+<span class="highlight2">GPIO</span> → PB5 on/off
+
+<span class="highlight">// TX PATH</span>
+uart_tx_string("Ok\n")
+    │  pushes bytes to tx_buf[tail++]
+    ▼
+<span class="highlight2">TX Ring Buffer</span> [64 bytes]
+    │  UDRIE0 enabled
+    ▼
+<span class="highlight">USART_UDRE_vect ISR</span> fires
+    │  writes tx_buf[head++] → UDR0
+    ▼
+Hardware shifts bits out at 9600 baud
+    │
+    ▼
+Laptop terminal prints response
+    </div>
+
+    <p>The key insight is that <strong>neither path blocks the CPU</strong>. RX bytes arrive asynchronously and are stored immediately by the ISR. TX bytes are queued and drained automatically by the UDRE interrupt — main never waits.</p>
+  </div>
+
+  <!-- KEY CODE -->
+  <div class="section">
+    <div class="section-label">03 — implementation</div>
+    <div class="section-title">The interesting parts</div>
+
+    <p>Baud rate is configured by writing a calculated value to UBRR0. The formula divides the CPU clock by the desired baud rate:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">uart.c — baud rate config</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="cm">// UBRR0 = (F_CPU / 16 / BAUD) - 1</span>
+<span class="cm">// At 16MHz, 9600 baud → UBRR0 = 103</span>
+<span class="kw">#define</span> <span class="nm">UBRR_VAL</span> ((F_CPU / <span class="nm">16</span> / <span class="nm">BAUD</span>) - <span class="nm">1</span>)
+
+<span class="kw">void</span> <span class="fn">uart_init</span>(<span class="kw">void</span>) {
+    <span class="ac">UBRR0</span> = <span class="nm">UBRR_VAL</span>;                         <span class="cm">// set baud rate</span>
+    <span class="ac">UCSR0B</span> |= (<span class="nm">1</span>&lt;&lt;<span class="ac">TXEN0</span>)|(<span class="nm">1</span>&lt;&lt;<span class="ac">RXEN0</span>)|(<span class="nm">1</span>&lt;&lt;<span class="ac">RXCIE0</span>); <span class="cm">// enable TX, RX, RX interrupt</span>
+    <span class="ac">UCSR0C</span> |= (<span class="nm">1</span>&lt;&lt;<span class="ac">UCSZ01</span>)|(<span class="nm">1</span>&lt;&lt;<span class="ac">UCSZ00</span>);        <span class="cm">// 8 data bits, 1 stop bit</span>
+}</pre>
+    </div>
+
+    <p>The RX ISR reads the status register before touching UDR0 — important because reading UDR0 clears the error flags:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">uart.c — interrupt-driven RX with error handling</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="fn">ISR</span>(<span class="ac">USART_RX_vect</span>) {
+    <span class="kw">uint8_t</span> status = <span class="ac">UCSR0A</span>;   <span class="cm">// read status FIRST — clears on UDR0 read</span>
+    <span class="kw">uint8_t</span> data   = <span class="ac">UDR0</span>;
+
+    <span class="cm">// discard on framing error or data overrun</span>
+    <span class="kw">if</span> (status &amp; ((<span class="nm">1</span>&lt;&lt;<span class="ac">FE0</span>) | (<span class="nm">1</span>&lt;&lt;<span class="ac">DOR0</span>))) <span class="kw">return</span>;
+
+    <span class="cm">// drop byte if buffer full (overflow protection)</span>
+    <span class="kw">if</span> ((rx_buf.tail + <span class="nm">1</span>) % <span class="nm">BUFFER_SIZE</span> == rx_buf.head) <span class="kw">return</span>;
+
+    rx_buf.buffer[rx_buf.tail] = data;
+    rx_buf.tail = (rx_buf.tail + <span class="nm">1</span>) % <span class="nm">BUFFER_SIZE</span>;
+}</pre>
+    </div>
+
+    <p>Non-blocking TX works by queuing bytes and enabling the UDRE interrupt. The ISR drains the buffer one byte at a time and disables itself when empty:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">uart.c — non-blocking TX</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">void</span> <span class="fn">uart_tx_byte</span>(<span class="kw">uint8_t</span> byte) {
+    <span class="cm">// spin only if TX buffer is full (rare)</span>
+    <span class="kw">while</span> ((tx_buf.tail + <span class="nm">1</span>) % <span class="nm">BUFFER_SIZE</span> == tx_buf.head);
+    tx_buf.buffer[tx_buf.tail] = byte;
+    tx_buf.tail = (tx_buf.tail + <span class="nm">1</span>) % <span class="nm">BUFFER_SIZE</span>;
+    <span class="ac">UCSR0B</span> |= (<span class="nm">1</span>&lt;&lt;<span class="ac">UDRIE0</span>);  <span class="cm">// kick the TX ISR</span>
+}
+
+<span class="fn">ISR</span>(<span class="ac">USART_UDRE_vect</span>) {
+    <span class="kw">if</span> (tx_buf.head != tx_buf.tail) {
+        <span class="ac">UDR0</span> = tx_buf.buffer[tx_buf.head];
+        tx_buf.head = (tx_buf.head + <span class="nm">1</span>) % <span class="nm">BUFFER_SIZE</span>;
+    } <span class="kw">else</span> {
+        <span class="ac">UCSR0B</span> &amp;= ~(<span class="nm">1</span>&lt;&lt;<span class="ac">UDRIE0</span>);  <span class="cm">// buffer empty — disable interrupt</span>
+    }
+}</pre>
+    </div>
+  </div>
+
+  <!-- DESIGN DECISIONS -->
+  <div class="section">
+    <div class="section-label">04 — design decisions</div>
+    <div class="section-title">Why I made these choices</div>
+
+    <div class="decisions">
+      <div class="decision-card">
+        <div class="decision-q">Why interrupt-driven RX instead of polling?</div>
+        <div class="decision-a">Polling means the CPU constantly checks the RXC0 flag — it can't do anything else. With an ISR, the CPU is free and only gets interrupted when a byte actually arrives. At 9600 baud a byte arrives every ~1ms — polling would waste most of that time doing nothing.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why a circular ring buffer?</div>
+        <div class="decision-a">The ISR and main loop run at different speeds — the ISR fires on every incoming byte, main reads when it's ready. A ring buffer decouples them cleanly. No dynamic allocation, no shifting, just two pointers wrapping around a fixed array. O(1) read and write.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why non-blocking TX?</div>
+        <div class="decision-a">The original blocking TX busy-waited on UDRE0 — the CPU sat idle while the hardware shifted bits out. Non-blocking TX queues the bytes and lets the UDRE interrupt handle transmission, freeing the CPU immediately. In a real system this matters for latency-sensitive tasks.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">What would I do differently?</div>
+        <div class="decision-a">Split into uart.h and uart.c with a clean public API — uart_init(), uart_tx(), uart_available(), uart_rx(). Right now everything is in one file which works but isn't reusable. Also add DMA-driven TX for high-throughput scenarios.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEMO -->
+  <div class="section">
+    <div class="section-label">05 — demo</div>
+
+    <p>To run it yourself — flash with avr-gcc and avrdude, open a serial terminal at 9600 baud:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">terminal</span>
+        <span class="code-lang">bash</span>
+      </div>
+      <pre>avr-gcc -mmcu=atmega328p -DF_CPU=16000000UL -Os -o main.elf main.c
+avr-objcopy -O ihex main.elf main.hex
+avrdude -c arduino -p atmega328p -P /dev/cu.usbmodem101 -b 115200 -U flash:w:main.hex
+screen /dev/cu.usbmodem101 9600</pre>
+    </div>
+  </div>
+
+  <!-- LEARNINGS -->
+  <div class="section">
+    <div class="section-label">06 — takeaways</div>
+    <div class="section-title">What I learned</div>
+
+    <div class="learning-grid">
+      <div class="learning-card">
+        <div class="learning-icon">//</div>
+        <div class="learning-title">Reading datasheets</div>
+        <div class="learning-desc">Every register, every bit — the ATmega328P datasheet is the only source of truth. Learned to navigate 400 pages to find exactly what I need.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">{}</div>
+        <div class="learning-title">Bare-metal C</div>
+        <div class="learning-desc">No OS, no HAL, no libraries. Direct memory-mapped register access. Every abstraction you normally take for granted — you build it yourself.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">~~</div>
+        <div class="learning-title">UART protocol</div>
+        <div class="learning-desc">Start bits, stop bits, baud rate math, framing errors — understood the protocol at the bit level, not just the API level.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">!!</div>
+        <div class="learning-title">Debugging without tools</div>
+        <div class="learning-desc">No debugger, no logic analyzer — just serial output and the datasheet. Forces you to reason carefully about what the hardware is actually doing.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINKS -->
+  <div class="project-links">
+    <a href="https://github.com/manojg24/atmega328p" class="btn btn-primary" target="_blank">View on GitHub</a>
+    <a href="index.html" class="btn btn-outline">← Back to Portfolio</a>
+  </div>
+
+</div>
+
+</body>
+</html>
