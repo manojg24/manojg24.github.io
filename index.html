@@ -554,11 +554,28 @@
     </div>
     <div class="exp-content">
       <div class="exp-role">Graduate Engineer — Firmware</div>
+
+      <p class="exp-summary">Worked on the Vehicle Data Processing (VDP) module — the firmware layer sitting between the CAN bus and the rest of the vehicle's software stack. VDP reads raw CAN signals, validates and processes them, and routes the right data to the right teams. Part of a large multi-team project delivering an automated parking assistance system for a TATA Motors production vehicle, covering parallel, perpendicular, empty slot, uphill, and downhill parking within 6 maneuvers.</p>
+
+      <div class="exp-section-title">// day to day</div>
       <ul class="exp-bullets">
-        <li>Engineered production-grade real-time embedded firmware for the Vehicle Data Processing module in C/Embedded C, defining hardware-software interfaces and achieving CAN/LIN communication reliability across distributed ECUs, VCUs, and BCUs.</li>
-        <li>Led cross-module code reviews and debugging, resolving 30+ issues across ADAS perception, control, and sensor/actuator subsystems, improving debugging time by 50%.</li>
-        <li>Collaborated with systems architects to define AUTOSAR SWC interfaces and port firmware to new ECU variants, reducing integration effort by 30% through reusable BSW abstraction layers.</li>
-        <li>Executed hardware validation using oscilloscopes, logic analyzers, CANoe, and HIL rigs; authored test reports ensuring MISRA-C compliant firmware met AUTOSAR timing constraints for Auto-Parking features.</li>
+        <li>Developed and maintained VDP firmware in C/Embedded C on ARM Cortex ECUs — configuring CAN messages and signals, processing incoming data, and ensuring correct routing to downstream teams including parking, base, and diagnostics.</li>
+        <li>Collaborated daily with cross-functional teams to align on signal interface requirements via ASIMA sheets, understand what each team needed from VDP, and keep integration moving across a large distributed codebase.</li>
+        <li>Defined AUTOSAR SWC interfaces in collaboration with systems architects and ported firmware components to new ECU variants, reducing integration effort through reusable BSW abstraction layers.</li>
+      </ul>
+
+      <div class="exp-highlight">
+        <div class="exp-highlight-title">// signal health monitor I built</div>
+        <p>Debugging signal issues across a large multi-team system was slow — engineers had to manually trace individual signals through CAN logs to figure out what was broken and why.</p>
+        <p>I built a live CAN signal monitor inside VDP.c in C. I grouped 7–8 related signals into single diagnostic flags, creating around 15 flags covering ~100 critical signals shared across teams. The monitor read signals live off the CAN bus and raised a flag the moment anything went out of expected range or stopped behaving correctly. Instead of hunting through hundreds of signals, engineers could look at one flag and immediately know which group was broken.</p>
+        <p>This reduced debugging time by 35–50% depending on fault severity. The diagnostics team adopted it as a standard tool alongside their own workflow.</p>
+      </div>
+
+      <div class="exp-section-title">// debugging & validation</div>
+      <ul class="exp-bullets">
+        <li>Debugging wasn't just at a desk — connected a laptop directly to the vehicle via CAN, sat in the car during parking maneuvers, read live CAN traces in CANoe, flashed updated firmware to the ECU mid-debug cycle, and iterated until behavior matched expectations.</li>
+        <li>Signal issues ranged from data corruption caused by multiple inputs affecting the same signal, to CAN configuration mismatches, to logic that needed fixing in VDP itself. Fixes came from all directions — filtering in VDP, correcting signal configs, or coordinating with the team that owned the upstream source.</li>
+        <li>Resolved 10–14 defects across the project lifecycle spanning ADAS perception, control, and sensor/actuator subsystems. Authored test reports ensuring MISRA-C compliant firmware met AUTOSAR timing constraints.</li>
       </ul>
     </div>
   </div>
@@ -627,7 +644,7 @@
         <span class="tech-tag">Dual-slot</span>
         <span class="tech-tag">Embedded</span>
       </div>
-      <a href="https://github.com/manojg24/Bootloader" class="project-link">github.com/manojg24 →</a>
+      <a href="bootloader.html" class="project-link">View Project →</a>
     </div>
 
     <div class="project-card">
@@ -697,7 +714,8 @@
         <span class="skill-item">GNU Toolchain</span>
         <span class="skill-item">Git</span>
         <span class="skill-item">Docker</span>
-        <span class="skill-item">Linux</span>
+        <span class="skill-item">Oscilloscope</span>
+        <span class="skill-item">Logic Analyzer</span>
       </div>
     </div>
 
@@ -706,6 +724,7 @@
       <div class="skill-list">
         <span class="skill-item">RTOS</span>
         <span class="skill-item">Device Drivers</span>
+        <span class="skill-item">Embedded Linux</span>
         <span class="skill-item">Bootloader</span>
         <span class="skill-item">ADAS</span>
         <span class="skill-item">Memory Management</span>

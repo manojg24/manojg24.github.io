@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secure Bootloader — Manoj Gangaraja</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+  }
+
+  .nav-back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--accent); }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 8rem 3rem 5rem;
+  }
+
+  .project-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .project-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-title span { color: var(--accent); }
+
+  .project-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+    padding-bottom: 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 15px;
+    color: #aaa;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  p strong { color: var(--text); font-weight: 500; }
+
+  /* FLASH MEMORY MAP */
+  .memory-map {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .memory-map-header {
+    padding: 0.75rem 1.25rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .memory-row {
+    display: grid;
+    grid-template-columns: 180px 120px 1fr;
+    padding: 0.6rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    gap: 1rem;
+  }
+  .memory-row:last-child { border-bottom: none; }
+
+  .memory-row.bootloader { background: rgba(0,136,255,0.06); }
+  .memory-row.slot-a { background: rgba(0,255,136,0.06); }
+  .memory-row.slot-b { background: rgba(0,255,136,0.04); }
+  .memory-row.metadata { background: rgba(255,200,0,0.06); }
+
+  .mem-addr { color: var(--accent2); font-size: 11px; }
+  .mem-size { color: var(--muted); font-size: 11px; }
+  .mem-label { color: var(--text); font-size: 12px; }
+
+  /* ARCHITECTURE */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #888;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .arch-diagram .hi { color: var(--accent); }
+  .arch-diagram .hi2 { color: var(--accent2); }
+  .arch-diagram .warn { color: #ffaa00; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-filename {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  pre {
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: #ccc;
+  }
+
+  .kw { color: #ff79c6; }
+  .cm { color: #555; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .nm { color: #bd93f9; }
+  .st { color: #f1fa8c; }
+  .ac { color: var(--accent); }
+
+  /* DECISION CARDS */
+  .decisions { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .decision-q {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .decision-a { font-size: 14px; color: #aaa; line-height: 1.6; }
+
+  /* FILE STRUCTURE */
+  .file-tree {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+    margin: 1.5rem 0;
+  }
+
+  .file-tree .dir { color: var(--accent2); }
+  .file-tree .file { color: #aaa; }
+  .file-tree .desc { color: var(--muted); font-size: 11px; }
+
+  /* LEARNING GRID */
+  .learning-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .learning-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    border-radius: 4px;
+  }
+
+  .learning-icon {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+
+  .learning-title { font-size: 13px; font-weight: 500; margin-bottom: 0.4rem; }
+  .learning-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* LINKS */
+  .project-links { display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; font-weight: 500; }
+  .btn-primary:hover { background: #00dd77; }
+  .btn-outline { border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .container { padding: 7rem 1.5rem 3rem; }
+    .memory-row { grid-template-columns: 1fr 1fr; }
+    .mem-size { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">MG.dev</a>
+  <a href="index.html" class="nav-back">← back to portfolio</a>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="project-label">// embedded / firmware — Jan 2026 — Feb 2026</div>
+  <h1 class="project-title">Secure <span>Bootloader</span><br>with Dual-Slot Firmware</h1>
+
+  <div class="project-meta">
+    <div class="meta-item">
+      <span class="meta-label">Platform</span>
+      <span class="meta-value">macOS (simulated flash)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">Pure C</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Flash Size</span>
+      <span class="meta-value">512 KB simulated</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Integrity</span>
+      <span class="meta-value">CRC32</span>
+    </div>
+  </div>
+
+  <div class="project-tags">
+    <span class="tag">C</span>
+    <span class="tag">Bootloader</span>
+    <span class="tag">CRC32</span>
+    <span class="tag">Dual-Slot</span>
+    <span class="tag">OTA</span>
+    <span class="tag">Flash Simulation</span>
+    <span class="tag">HAL</span>
+    <span class="tag">Rollback</span>
+    <span class="tag">Firmware Validation</span>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="section">
+    <div class="section-label">01 — motivation</div>
+    <div class="section-title">Why I built this</div>
+    <p>At Continental I worked on firmware that ran on ECUs — but I never had to think about how that firmware got onto the ECU safely, or what happened if an update went wrong mid-flash. Bootloaders are the first thing that runs on any embedded system, and they're responsible for making sure only valid, uncorrupted firmware ever executes.</p>
+    <p>I built this project to understand that mechanism from scratch — <strong>dual-slot firmware storage, CRC integrity verification, and automatic rollback</strong> if the primary slot is invalid. No hardware needed — flash memory is simulated as a file, which mirrors how real bootloaders abstract hardware anyway.</p>
+  </div>
+
+  <!-- FLASH MEMORY LAYOUT -->
+  <div class="section">
+    <div class="section-label">02 — flash memory layout</div>
+    <div class="section-title">How the 512KB is organized</div>
+    <p>The flash is divided into four regions. The bootloader lives at the bottom, two firmware slots sit above it, and a small metadata region at the top tracks which slot is active and stores firmware headers.</p>
+
+    <div class="memory-map">
+      <div class="memory-map-header">// flash.bin — 512 KB simulated flash layout</div>
+      <div class="memory-row bootloader">
+        <span class="mem-addr">0x00000 — 0x07FFF</span>
+        <span class="mem-size">32 KB</span>
+        <span class="mem-label">Bootloader</span>
+      </div>
+      <div class="memory-row slot-a">
+        <span class="mem-addr">0x08000 — 0x27FFF</span>
+        <span class="mem-size">128 KB</span>
+        <span class="mem-label">Slot A — primary firmware</span>
+      </div>
+      <div class="memory-row slot-b">
+        <span class="mem-addr">0x28000 — 0x47FFF</span>
+        <span class="mem-size">128 KB</span>
+        <span class="mem-label">Slot B — fallback firmware</span>
+      </div>
+      <div class="memory-row metadata">
+        <span class="mem-addr">0x48000 — 0x48FFF</span>
+        <span class="mem-size">4 KB</span>
+        <span class="mem-label">Metadata — headers, active slot flag</span>
+      </div>
+    </div>
+
+    <p>Each slot has a <strong>firmware header</strong> stored in the metadata region encoding a unique ID, payload size, and CRC32 checksum. The bootloader reads these headers before touching the actual firmware image.</p>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section">
+    <div class="section-label">03 — architecture</div>
+    <div class="section-title">How it works end to end</div>
+
+    <div class="arch-diagram">
+<span class="hi">// BOOT SEQUENCE</span>
+Power on
+    │
+    ▼
+<span class="hi">bootloader.c</span> — entry point
+    │  flash_init() — open flash.bin, initialize to 0xFF
+    ▼
+Read firmware headers from metadata region
+    │  Slot A header → unique_id, size, crc32
+    │  Slot B header → unique_id, size, crc32
+    ▼
+<span class="hi2">firmware.c</span> — validate Slot A
+    │  null pointer check
+    │  unique_id verification
+    │  size bounds check
+    │  CRC32 over payload ← recomputed, compared to header
+    ▼
+<span class="hi">Slot A valid?</span>
+    │ YES → boot Slot A
+    │ NO  ↓
+<span class="hi2">firmware.c</span> — validate Slot B
+    │
+    ▼
+<span class="hi">Slot B valid?</span>
+    │ YES → boot Slot B
+    │ NO  ↓
+<span class="warn">Both slots invalid → HALT</span>
+system stays in bootloader, safe state
+    </div>
+
+    <p>The three source files map directly to three responsibilities — <strong>bootloader.c</strong> owns control flow, <strong>firmware.c</strong> owns validation logic, <strong>flash.c</strong> owns hardware access. This layered approach means the validation logic never touches the file directly — it goes through the flash abstraction layer, exactly like a real embedded system.</p>
+  </div>
+
+  <!-- FILE STRUCTURE -->
+  <div class="section">
+    <div class="section-label">04 — file structure</div>
+    <div class="section-title">Clean separation of concerns</div>
+
+    <div class="file-tree">
+<span class="dir">bootloader/</span>
+├── <span class="file">bootloader.c</span>   <span class="desc">// entry point, boot sequence, slot selection</span>
+├── <span class="file">firmware.c</span>    <span class="desc">// firmware header validation, CRC32 checks</span>
+├── <span class="file">firmware.h</span>    <span class="desc">// FirmwareHeader struct, validate_firmware() prototype</span>
+├── <span class="file">flash.c</span>       <span class="desc">// flash abstraction — init, read, write via flash.bin</span>
+├── <span class="file">flash.h</span>       <span class="desc">// flash_init(), flash_read(), flash_write() prototypes</span>
+└── <span class="file">flash.bin</span>     <span class="desc">// simulated 512KB flash memory file</span>
+    </div>
+  </div>
+
+  <!-- KEY CODE -->
+  <div class="section">
+    <div class="section-label">05 — implementation</div>
+    <div class="section-title">The interesting parts</div>
+
+    <p>The firmware header struct holds everything the bootloader needs to validate a slot before booting it:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">firmware.h — firmware header</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">typedef struct</span> {
+    <span class="kw">uint32_t</span> unique_id;    <span class="cm">// identifies this firmware image</span>
+    <span class="kw">uint32_t</span> size;         <span class="cm">// payload size in bytes</span>
+    <span class="kw">uint32_t</span> crc32;        <span class="cm">// CRC32 checksum of the payload</span>
+} <span class="nm">FirmwareHeader</span>;</pre>
+    </div>
+
+    <p>Validation runs four checks in order — if any fail, the slot is rejected immediately:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">firmware.c — validate_firmware()</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">int</span> <span class="fn">validate_firmware</span>(<span class="nm">FirmwareHeader</span> *header, <span class="kw">uint8_t</span> *payload) {
+    <span class="cm">// 1. null pointer check</span>
+    <span class="kw">if</span> (!header || !payload) <span class="kw">return</span> <span class="nm">0</span>;
+
+    <span class="cm">// 2. unique ID must match expected value</span>
+    <span class="kw">if</span> (header->unique_id != <span class="nm">EXPECTED_FIRMWARE_ID</span>) <span class="kw">return</span> <span class="nm">0</span>;
+
+    <span class="cm">// 3. size must be within flash slot bounds</span>
+    <span class="kw">if</span> (header->size == <span class="nm">0</span> || header->size > <span class="nm">SLOT_SIZE</span>) <span class="kw">return</span> <span class="nm">0</span>;
+
+    <span class="cm">// 4. recompute CRC32 and compare to header</span>
+    <span class="kw">uint32_t</span> computed = <span class="fn">crc32</span>(payload, header->size);
+    <span class="kw">if</span> (computed != header->crc32) <span class="kw">return</span> <span class="nm">0</span>;
+
+    <span class="kw">return</span> <span class="nm">1</span>;  <span class="cm">// all checks passed</span>
+}</pre>
+    </div>
+
+    <p>The flash abstraction layer means all reads and writes go through one interface — simulated via a file but identical in API to what a real flash driver would expose:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">flash.c — flash abstraction</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">void</span> <span class="fn">flash_init</span>(<span class="kw">void</span>) {
+    <span class="cm">// open flash.bin, initialize to 0xFF (erased state)</span>
+    flash_file = <span class="fn">fopen</span>(<span class="st">"flash.bin"</span>, <span class="st">"wb+"</span>);
+    <span class="fn">memset</span>(buffer, <span class="nm">0xFF</span>, <span class="nm">FLASH_SIZE</span>);
+    <span class="fn">fwrite</span>(buffer, <span class="nm">1</span>, <span class="nm">FLASH_SIZE</span>, flash_file);
+}
+
+<span class="kw">void</span> <span class="fn">flash_read</span>(<span class="kw">uint32_t</span> addr, <span class="kw">uint8_t</span> *buf, <span class="kw">uint32_t</span> len) {
+    <span class="fn">fseek</span>(flash_file, addr, SEEK_SET);
+    <span class="fn">fread</span>(buf, <span class="nm">1</span>, len, flash_file);
+}
+
+<span class="kw">void</span> <span class="fn">flash_write</span>(<span class="kw">uint32_t</span> addr, <span class="kw">uint8_t</span> *buf, <span class="kw">uint32_t</span> len) {
+    <span class="fn">fseek</span>(flash_file, addr, SEEK_SET);
+    <span class="fn">fwrite</span>(buf, <span class="nm">1</span>, len, flash_file);
+}</pre>
+    </div>
+  </div>
+
+  <!-- DESIGN DECISIONS -->
+  <div class="section">
+    <div class="section-label">06 — design decisions</div>
+    <div class="section-title">Why I made these choices</div>
+
+    <div class="decisions">
+      <div class="decision-card">
+        <div class="decision-q">Why dual slots instead of single slot?</div>
+        <div class="decision-a">Single slot means if a firmware update fails mid-write — power loss, corruption — the device is bricked. Dual slots solve this: the bootloader always has a known-good fallback. You write new firmware to the inactive slot, validate it, then switch. If validation fails, the old slot still boots. This is standard in automotive ECUs and any OTA-capable device.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why CRC32 instead of a simple checksum?</div>
+        <div class="decision-a">A simple additive checksum misses burst errors — multiple adjacent bits flipping, which is common in flash memory corruption. CRC32 uses polynomial division to detect these patterns reliably. It's not cryptographic — it doesn't protect against intentional tampering — but for detecting accidental corruption in flash, it's the industry standard choice.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why simulate flash as a file?</div>
+        <div class="decision-a">No hardware available — but more importantly, it proves the design is hardware-independent. The flash abstraction layer (flash.c) means the bootloader logic never touches the file directly. Swap flash.c for a real flash driver on STM32 or any other MCU and everything above it works unchanged. That's the point of a HAL.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">What would I add next?</div>
+        <div class="decision-a">OTA update via HTTP was planned but not built — that would mean fetching a new firmware image over a network, writing it to the inactive slot, and triggering a reboot. Also cryptographic signature verification (RSA or ECDSA) to protect against intentional tampering, not just accidental corruption.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REAL WORLD -->
+  <div class="section">
+    <div class="section-label">07 — real world relevance</div>
+    <div class="section-title">Where this pattern shows up</div>
+    <p>This exact design — dual slots, CRC validation, rollback on failure — is used in:</p>
+    <p><strong>Automotive ECUs</strong> — OTA firmware updates on safety-critical systems must never leave the ECU in an unbootable state. Continental and other Tier 1 suppliers use this pattern directly.</p>
+    <p><strong>IoT devices</strong> — ESP32, STM32, and similar chips use dual-slot OTA as the standard update mechanism. The ESP-IDF framework implements exactly this.</p>
+    <p><strong>Medical devices and aerospace</strong> — any system where a failed update cannot be recovered manually needs automatic rollback.</p>
+  </div>
+
+  <!-- LEARNINGS -->
+  <div class="section">
+    <div class="section-label">08 — takeaways</div>
+    <div class="section-title">What I learned</div>
+
+    <div class="learning-grid">
+      <div class="learning-card">
+        <div class="learning-icon">//</div>
+        <div class="learning-title">Bootloader design</div>
+        <div class="learning-desc">How a bootloader validates and selects firmware before handing off execution — the first code that runs on any embedded system.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">{}</div>
+        <div class="learning-title">Hardware abstraction</div>
+        <div class="learning-desc">Why separating flash access into its own layer matters — the same bootloader logic works on any hardware just by swapping the flash driver.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">~~</div>
+        <div class="learning-title">CRC32 integrity</div>
+        <div class="learning-desc">How CRC32 detects flash corruption, why it's stronger than simple checksums, and where its limits are vs cryptographic verification.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">!!</div>
+        <div class="learning-title">Fault tolerance</div>
+        <div class="learning-desc">Designing systems that degrade gracefully — if both slots fail, halt safely rather than boot corrupt firmware that could damage hardware.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="project-links">
+    <a href="https://github.com/manojg24/Bootloader" class="btn btn-primary" target="_blank">View on GitHub</a>
+    <a href="index.html" class="btn btn-outline">← Back to Portfolio</a>
+  </div>
+
+</div>
+
+</body>
+</html>
