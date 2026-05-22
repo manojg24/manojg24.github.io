@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>x86 OS Kernel — Manoj Gangaraja</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+  }
+
+  .nav-back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--accent); }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 8rem 3rem 5rem;
+  }
+
+  .project-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .project-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-title span { color: var(--accent); }
+
+  .project-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+    padding-bottom: 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 15px;
+    color: #aaa;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  p strong { color: var(--text); font-weight: 500; }
+
+  /* PART CARDS */
+  .parts-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 1.5rem;
+    position: relative;
+  }
+
+  .parts-timeline::before {
+    content: '';
+    position: absolute;
+    left: 16px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .part-item {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    position: relative;
+  }
+
+  .part-num {
+    width: 32px;
+    height: 32px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .part-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .part-content:hover { border-color: var(--accent); }
+
+  .part-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .part-subtitle {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .part-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.7;
+  }
+
+  .part-highlight {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ARCH DIAGRAM */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #888;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .arch-diagram .hi { color: var(--accent); }
+  .arch-diagram .hi2 { color: var(--accent2); }
+  .arch-diagram .warn { color: #ffaa00; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-filename {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  pre {
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: #ccc;
+  }
+
+  .kw { color: #ff79c6; }
+  .cm { color: #555; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .nm { color: #bd93f9; }
+  .st { color: #f1fa8c; }
+  .ac { color: var(--accent); }
+
+  /* HIGHLIGHT CARDS */
+  .highlight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1.5rem 0;
+  }
+
+  .highlight-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .highlight-card p {
+    font-size: 14px;
+    margin-bottom: 0.5rem;
+  }
+  .highlight-card p:last-child { margin-bottom: 0; }
+
+  /* DECISION CARDS */
+  .decisions { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .decision-q {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .decision-a { font-size: 14px; color: #aaa; line-height: 1.6; }
+
+  /* LEARNING GRID */
+  .learning-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .learning-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    border-radius: 4px;
+  }
+
+  .learning-icon {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+
+  .learning-title { font-size: 13px; font-weight: 500; margin-bottom: 0.4rem; }
+  .learning-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* MEMORY MAP */
+  .memory-map {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .memory-map-header {
+    padding: 0.75rem 1.25rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .memory-row {
+    display: grid;
+    grid-template-columns: 160px 100px 1fr;
+    padding: 0.6rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    gap: 1rem;
+  }
+  .memory-row:last-child { border-bottom: none; }
+  .memory-row.kernel { background: rgba(0,136,255,0.06); }
+  .memory-row.process { background: rgba(0,255,136,0.06); }
+  .memory-row.direct { background: rgba(255,200,0,0.04); }
+
+  .mem-addr { color: var(--accent2); font-size: 11px; }
+  .mem-size { color: var(--muted); font-size: 11px; }
+  .mem-label { color: var(--text); font-size: 12px; }
+
+  /* LINKS */
+  .project-links { display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; font-weight: 500; }
+  .btn-primary:hover { background: #00dd77; }
+  .btn-outline { border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .container { padding: 7rem 1.5rem 3rem; }
+    .memory-row { grid-template-columns: 1fr 1fr; }
+    .mem-size { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">MG.dev</a>
+  <a href="index.html" class="nav-back">← back to portfolio</a>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="project-label">// systems programming — Feb 2026 — Apr 2026</div>
+  <h1 class="project-title">Custom <span>x86 OS Kernel</span><br>from Scratch</h1>
+
+  <div class="project-meta">
+    <div class="meta-item">
+      <span class="meta-label">Architecture</span>
+      <span class="meta-value">x86 (32-bit)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">C + x86 Assembly</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Boot</span>
+      <span class="meta-value">Multiboot / GRUB</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Parts</span>
+      <span class="meta-value">6 complete modules</span>
+    </div>
+  </div>
+
+  <div class="project-tags">
+    <span class="tag">C</span>
+    <span class="tag">x86 Assembly</span>
+    <span class="tag">Multiboot</span>
+    <span class="tag">Virtual Memory</span>
+    <span class="tag">Paging</span>
+    <span class="tag">Scheduler</span>
+    <span class="tag">Device Driver</span>
+    <span class="tag">File System</span>
+    <span class="tag">CRC32</span>
+    <span class="tag">Linked List</span>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="section">
+    <div class="section-label">01 — motivation</div>
+    <div class="section-title">Why I built this</div>
+    <p>I took an Operating Systems course as part of my MS program at Texas A&M, and this kernel was the core project. But beyond the curriculum — I wanted to understand what actually happens after a system boots up. At Continental I worked on firmware that ran on ECUs, but there was always a layer of AUTOSAR and BSW sitting between my code and the hardware.</p>
+    <p>This project stripped all of that away. <strong>No OS underneath, no libraries, just C and assembly running directly on x86.</strong> I wanted to understand how memory gets organized, how the CPU switches between threads, how a disk driver works at the register level, and how a file system actually stores data. Building it from scratch is the only way to truly know.</p>
+    <p>The two parts I'm most proud of — the <strong>recursive page table lookup</strong> and the <strong>zombie thread pattern</strong> — both solved problems that weren't obvious until I was deep in the implementation.</p>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="section">
+    <div class="section-label">02 — system overview</div>
+    <div class="section-title">What the kernel can do</div>
+
+    <div class="arch-diagram">
+<span class="hi">// KERNEL LAYER STACK (bottom to top)</span>
+
+<span class="hi2">Hardware (x86 CPU, disk, memory)</span>
+    │
+    ▼
+<span class="hi">Multiboot + Assembly</span>         — bootstraps the kernel, sets up segments
+    │
+    ▼
+<span class="hi">ContFramePool</span>               — physical memory manager, 2-bit bitmap
+    │  Kernel Pool: 2MB–4MB
+    │  Process Pool: above 4MB
+    ▼
+<span class="hi">PageTable</span>                   — virtual memory, demand paging, page fault handler
+    │  recursive page table lookup
+    │  CR3, CR0 control register manipulation
+    ▼
+<span class="hi">VMPool</span>                      — logical address space manager, lazy allocation
+    │  allocate() reserves address space — no physical frame yet
+    │  page fault maps frame on first access
+    ▼
+<span class="hi">Scheduler (FIFO)</span>            — thread lifecycle, ready queue, zombie reclamation
+    │  O(1) enqueue/dequeue via linked list
+    │  yield() → context switch → dispatch
+    ▼
+<span class="hi">NonBlockingDisk</span>             — disk I/O without busy-waiting
+    │  yield() inside wait_while_busy()
+    │  other threads run during mechanical seek
+    ▼
+<span class="hi">FileSystem</span>                  — indexed allocation, up to 64KB files
+    │  inode list, freelist bitmap
+    │  indirect index blocks for multi-block files
+    ▼
+<span class="hi2">User threads running on top</span>
+    </div>
+  </div>
+
+  <!-- 6 PARTS -->
+  <div class="section">
+    <div class="section-label">03 — six modules</div>
+    <div class="section-title">Built incrementally, each on top of the last</div>
+
+    <div class="parts-timeline">
+
+      <div class="part-item">
+        <div class="part-num">1</div>
+        <div class="part-content">
+          <div class="part-subtitle">Frame Manager</div>
+          <div class="part-title">Physical Memory — 2-bit Bitmap Allocator</div>
+          <p class="part-desc">Physical memory is divided into 4KB frames. A 2-bit bitmap tracks every frame's state — FREE, USED, HEAD, or INACCESSIBLE. The HEAD state marks the start of a contiguous block so blocks can be released without storing their size. A static pool registry lets the release function find the right pool owner for any physical address. The allocator protects its own bitmap by marking the management frame as INACCESSIBLE.</p>
+          <div class="part-highlight">// key insight: 2 bits per frame instead of 1 — enables contiguous allocation and O(1) release without size parameter</div>
+        </div>
+      </div>
+
+      <div class="part-item">
+        <div class="part-num">2</div>
+        <div class="part-content">
+          <div class="part-subtitle">Page Table Management</div>
+          <div class="part-title">Virtual Memory — Demand Paging + Page Fault Handler</div>
+          <p class="part-desc">The kernel sets up a two-level x86 page table structure. The first 4MB is direct-mapped — logical address equals physical address — so the kernel always has a stable foundation. Paging is enabled by writing to CR3 (page directory base) and CR0 (enable paging bit). Above 4MB, memory is demand-paged: the page fault handler catches Exception 14, reads the faulting address from CR2, allocates a physical frame from the Process Pool, and maps it in the page table on the fly.</p>
+          <div class="part-highlight">// two pools: Kernel Pool (2MB–4MB) for system structures, Process Pool (above 4MB) for user frames</div>
+        </div>
+      </div>
+
+      <div class="part-item">
+        <div class="part-num">3</div>
+        <div class="part-content">
+          <div class="part-subtitle">Virtual Memory Management</div>
+          <div class="part-title">Recursive Page Tables + Lazy Allocation via VMPools</div>
+          <p class="part-desc">This is the most technically interesting part. Instead of storing page tables in the small Kernel Pool, the last entry of the Page Directory points back to itself. This creates fixed logical windows (0xFFFFF000 for the Directory, 0xFFC00000 for Tables) that let the fault handler edit page tables without knowing their physical addresses — so tables can live in the larger Process Pool. VMPools add a lazy allocation layer: allocate() just records the intent in a Region list without touching physical memory. The actual frame is mapped only when the CPU touches that address and triggers a fault.</p>
+          <div class="part-highlight">// recursive page table = the most elegant trick in x86 virtual memory — one self-referencing entry gives you a window into the entire page table structure</div>
+        </div>
+      </div>
+
+      <div class="part-item">
+        <div class="part-num">4</div>
+        <div class="part-content">
+          <div class="part-subtitle">Thread Scheduler</div>
+          <div class="part-title">FIFO Scheduler + Zombie Thread Pattern</div>
+          <p class="part-desc">The scheduler manages thread lifecycle using a linked-list Ready Queue with O(1) enqueue and dequeue via head and tail pointers. When a thread calls yield(), the scheduler saves context, picks the next thread, and dispatches. The hardest problem: a thread cannot delete its own stack while executing the deletion code. Solution — a Zombie Queue. When a thread finishes, it parks itself in the zombie list instead of self-destructing. The next thread's yield() call reclaims zombie memory safely, because it's running on its own stack at that point.</p>
+          <div class="part-highlight">// zombie pattern solves the "can't free your own stack" problem — defer cleanup to the next scheduled thread</div>
+        </div>
+      </div>
+
+      <div class="part-item">
+        <div class="part-num">5</div>
+        <div class="part-content">
+          <div class="part-subtitle">Disk Device Driver</div>
+          <div class="part-title">Non-Blocking Disk I/O — No Busy Waiting</div>
+          <p class="part-desc">The original SimpleDisk spun in a tight loop waiting for the disk head to seek — wasting 100% of the CPU during mechanical I/O latency. NonBlockingDisk overrides wait_while_busy() to call yield() inside the loop instead. When the disk is seeking, the calling thread moves to the back of the Ready Queue and other threads execute. The disk operations still complete correctly when the thread is rescheduled — just without burning CPU cycles during the wait.</p>
+          <div class="part-highlight">// one line change: while(is_busy()); → while(is_busy()) { yield(); } — turns wasted CPU into useful work</div>
+        </div>
+      </div>
+
+      <div class="part-item">
+        <div class="part-num">6</div>
+        <div class="part-content">
+          <div class="part-subtitle">File System</div>
+          <div class="part-title">Indexed Allocation — Files up to 64KB</div>
+          <p class="part-desc">The file system organizes disk blocks into a fixed layout: Block 0 stores inodes, Block 1 stores a freelist bitmap, and the rest are data blocks. Basic files are limited to 512 bytes (one block). The extended implementation uses indirect index blocks — each inode points to an Index Block containing 128 pointers to 512-byte data blocks, giving a maximum file size of 64KB. On-demand block allocation in Write() and dirty cache flushing before block switches ensures data integrity. DeleteFile iterates the index block to free all associated data blocks before releasing the inode.</p>
+          <div class="part-highlight">// indirect indexing: inode → index block (128 pointers) → 128 × 512B data blocks = 64KB max file size</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DEEP DIVES -->
+  <div class="section">
+    <div class="section-label">04 — deep dives</div>
+    <div class="section-title">The two parts I'm most proud of</div>
+
+    <div class="highlight-card">
+      <div class="highlight-title">// recursive page table — the elegant trick</div>
+      <p>The problem: to edit a page table, you need to know its physical address. But page tables live in virtual memory. You'd need another page table to find them — infinite regress.</p>
+      <p>The solution: point the last entry (entry 1023) of the Page Directory back to the Page Directory itself. Now the CPU's own address translation hardware gives you a fixed logical window into every page table in the system — 0xFFFFF000 always resolves to the Page Directory, and 0xFFC00000 gives you the base of all page tables. No physical addresses needed. This is what lets page tables live in the large Process Pool instead of the small Kernel Pool.</p>
+      <p>It's one of those solutions that feels like magic until you trace through the address translation by hand — then it's obvious and beautiful.</p>
+    </div>
+
+    <div class="highlight-card">
+      <div class="highlight-title">// zombie threads — deferred cleanup</div>
+      <p>The problem: when a thread finishes execution, it needs to free its own stack. But the code that frees the stack is still running on that stack. You can't pull the floor out from under yourself.</p>
+      <p>The solution: instead of self-destructing, the finished thread calls terminate() which parks it in a Zombie Queue. The next thread's yield() call starts with reclaim_zombies() — it deletes the zombie's memory while safely running on its own stack. The zombie's resources are reclaimed exactly one yield() cycle after the thread finishes. Clean, safe, no leaks.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">scheduler.C — yield() with zombie reclamation</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">void</span> <span class="fn">Scheduler::yield</span>() {
+    <span class="cm">// reclaim zombies first — safe because we're on our own stack</span>
+    <span class="fn">reclaim_zombies</span>();
+
+    <span class="cm">// dequeue next thread from head of ready queue — O(1)</span>
+    Thread* next = ready_head;
+    ready_head = ready_head->next;
+    <span class="kw">if</span> (!ready_head) ready_tail = <span class="nm">nullptr</span>;
+
+    <span class="cm">// context switch — saves current, restores next</span>
+    Thread::<span class="fn">dispatch_to</span>(next);
+}
+
+<span class="kw">void</span> <span class="fn">Scheduler::terminate</span>(Thread* t) {
+    <span class="cm">// park in zombie queue instead of deleting</span>
+    t->next = <span class="nm">nullptr</span>;
+    <span class="kw">if</span> (!zombie_tail) zombie_head = zombie_tail = t;
+    <span class="kw">else</span> { zombie_tail->next = t; zombie_tail = t; }
+
+    <span class="cm">// yield — next thread will reclaim us</span>
+    <span class="fn">yield</span>();
+}</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">page_table.C — recursive address constants</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="cm">// these magic addresses work because entry 1023 of the</span>
+<span class="cm">// page directory points back to itself</span>
+<span class="kw">#define</span> <span class="ac">PAGE_DIRECTORY_ADDR</span>  <span class="nm">0xFFFFF000</span>  <span class="cm">// always resolves to page directory</span>
+<span class="kw">#define</span> <span class="ac">PAGE_TABLES_BASE</span>     <span class="nm">0xFFC00000</span>  <span class="cm">// base of all page tables</span>
+
+<span class="kw">void</span> <span class="fn">PageTable::handle_fault</span>(<span class="kw">REGS</span>* r) {
+    <span class="cm">// read faulting address from CR2</span>
+    <span class="kw">unsigned long</span> fault_addr;
+    <span class="fn">asm volatile</span>(<span class="st">"mov %%cr2, %0"</span> : <span class="st">"=r"</span>(fault_addr));
+
+    <span class="cm">// use recursive addresses to check/create page table entry</span>
+    <span class="kw">unsigned long</span>* pd = (<span class="kw">unsigned long</span>*)<span class="ac">PAGE_DIRECTORY_ADDR</span>;
+    <span class="kw">unsigned long</span> pd_idx = fault_addr >> <span class="nm">22</span>;
+
+    <span class="kw">if</span> (!(pd[pd_idx] & <span class="nm">0x1</span>)) {
+        <span class="cm">// page table missing — allocate one from process pool</span>
+        <span class="kw">unsigned long</span> new_pt = process_mem_pool-><span class="fn">get_frames</span>(<span class="nm">1</span>) * <span class="nm">PAGE_SIZE</span>;
+        pd[pd_idx] = new_pt | <span class="nm">0x3</span>;  <span class="cm">// present + R/W</span>
+    }
+
+    <span class="cm">// map physical frame to faulting address</span>
+    <span class="kw">unsigned long</span>* pt = (<span class="kw">unsigned long</span>*)(<span class="ac">PAGE_TABLES_BASE</span> + (pd_idx << <span class="nm">12</span>));
+    <span class="kw">unsigned long</span> pt_idx = (fault_addr >> <span class="nm">12</span>) & <span class="nm">0x3FF</span>;
+    pt[pt_idx] = (process_mem_pool-><span class="fn">get_frames</span>(<span class="nm">1</span>) * <span class="nm">PAGE_SIZE</span>) | <span class="nm">0x3</span>;
+}</pre>
+    </div>
+  </div>
+
+  <!-- MEMORY LAYOUT -->
+  <div class="section">
+    <div class="section-label">05 — memory layout</div>
+    <div class="section-title">How physical memory is organized</div>
+
+    <div class="memory-map">
+      <div class="memory-map-header">// physical address space layout</div>
+      <div class="memory-row direct">
+        <span class="mem-addr">0x00000 — 0x1FFFFF</span>
+        <span class="mem-size">2 MB</span>
+        <span class="mem-label">Direct-mapped kernel region</span>
+      </div>
+      <div class="memory-row kernel">
+        <span class="mem-addr">0x200000 — 0x3FFFFF</span>
+        <span class="mem-size">2 MB</span>
+        <span class="mem-label">Kernel Pool — page tables, system structures</span>
+      </div>
+      <div class="memory-row process">
+        <span class="mem-addr">0x400000 — end</span>
+        <span class="mem-size">rest</span>
+        <span class="mem-label">Process Pool — user frames, demand paged</span>
+      </div>
+    </div>
+
+    <p>The first 4MB is always direct-mapped — logical address equals physical address. This ensures the kernel never crashes on a page fault in its own code. Everything above 4MB is demand-paged through VMPools — physical frames are only allocated when actually accessed.</p>
+  </div>
+
+  <!-- CHALLENGES -->
+  <div class="section">
+    <div class="section-label">06 — challenges</div>
+    <div class="section-title">What was hard</div>
+
+    <div class="decisions">
+      <div class="decision-card">
+        <div class="decision-q">Understanding recursive page tables</div>
+        <div class="decision-a">The recursive trick isn't intuitive — it took tracing through the address translation by hand multiple times before it clicked. Once it did, the elegance of it was clear: you're using the CPU's own MMU hardware as a tool to navigate the page table structure. No extra data structures needed.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">The zombie thread problem</div>
+        <div class="decision-a">This was a class of bug I hadn't encountered before — a thread trying to free its own execution context. The zombie pattern was the solution, but getting the timing right (reclaim at the start of yield, not the end) took careful reasoning about which stack was active at each point.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Debugging without a debugger</div>
+        <div class="decision-a">Kernel bugs are brutal to debug — a bad pointer dereference just hangs or resets the machine. No printf until you've set up serial output. Learning to reason carefully about what the hardware is doing from first principles, rather than relying on tools, was the biggest skill this project built.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEARNINGS -->
+  <div class="section">
+    <div class="section-label">07 — takeaways</div>
+    <div class="section-title">What I learned</div>
+
+    <div class="learning-grid">
+      <div class="learning-card">
+        <div class="learning-icon">//</div>
+        <div class="learning-title">Physical memory</div>
+        <div class="learning-desc">How physical frames are managed, why contiguous allocation needs more than a 1-bit bitmap, and how pools separate kernel and user memory.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">{}</div>
+        <div class="learning-title">Virtual memory</div>
+        <div class="learning-desc">How x86 page tables work at the hardware level — CR3, CR0, two-level lookup, PTE bits — and why demand paging is more efficient than eager allocation.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">~~</div>
+        <div class="learning-title">Thread scheduling</div>
+        <div class="learning-desc">How context switches work, why FIFO is simple but effective, and how to handle edge cases like thread termination safely without memory leaks.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">!!</div>
+        <div class="learning-title">Systems thinking</div>
+        <div class="learning-desc">Each module depends on the previous. A bug in the frame allocator shows up as a crash in the file system. Building bottom-up teaches you to trust each layer before adding the next.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">[]</div>
+        <div class="learning-title">Data structures matter</div>
+        <div class="learning-desc">O(1) vs O(n) is the difference between a scheduler that works and one that falls apart under load. Linked lists, bitmaps, and indexed blocks — every choice has a reason.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">>_</div>
+        <div class="learning-title">What happens after boot</div>
+        <div class="learning-desc">The original question that motivated this project. Now I know — Multiboot loads the kernel, assembly sets up segments, C takes over, and everything else is built on top.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="project-links">
+    <a href="index.html" class="btn btn-outline">← Back to Portfolio</a>
+  </div>
+
+</div>
+
+</body>
+</html>

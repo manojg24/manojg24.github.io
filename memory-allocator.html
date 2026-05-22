@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Allocator — Manoj Gangaraja</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+  }
+
+  .nav-back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--accent); }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 8rem 3rem 5rem;
+  }
+
+  .project-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .project-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-title span { color: var(--accent); }
+
+  .project-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+    padding-bottom: 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 15px;
+    color: #aaa;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  p strong { color: var(--text); font-weight: 500; }
+
+  /* PERF METRICS */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 1.6rem;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+
+  .metric-label {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+    margin-bottom: 0.25rem;
+  }
+
+  .metric-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 0.05em;
+  }
+
+  /* HEAP DIAGRAM */
+  .heap-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    overflow-x: auto;
+  }
+
+  .heap-row {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 0.5rem;
+    align-items: stretch;
+  }
+
+  .heap-block {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    font-size: 11px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .heap-block.header { background: rgba(0,136,255,0.1); color: var(--accent2); border-color: var(--accent2); }
+  .heap-block.used { background: rgba(255,100,100,0.1); color: #ff6464; border-color: #ff6464; flex: 2; }
+  .heap-block.free { background: rgba(0,255,136,0.08); color: var(--accent); border-color: var(--accent); flex: 3; }
+  .heap-block.split { background: rgba(255,200,0,0.08); color: #ffcc00; border-color: #ffcc00; flex: 1; }
+
+  .heap-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ARCH DIAGRAM */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #888;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .arch-diagram .hi { color: var(--accent); }
+  .arch-diagram .hi2 { color: var(--accent2); }
+  .arch-diagram .warn { color: #ffaa00; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-filename {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  pre {
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: #ccc;
+  }
+
+  .kw { color: #ff79c6; }
+  .cm { color: #555; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .nm { color: #bd93f9; }
+  .st { color: #f1fa8c; }
+  .ac { color: var(--accent); }
+
+  /* HIGHLIGHT CARDS */
+  .highlight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1.5rem 0;
+  }
+
+  .highlight-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .highlight-card p { font-size: 14px; margin-bottom: 0.5rem; }
+  .highlight-card p:last-child { margin-bottom: 0; }
+
+  /* DECISIONS */
+  .decisions { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .decision-q {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .decision-a { font-size: 14px; color: #aaa; line-height: 1.6; }
+
+  /* LEARNING GRID */
+  .learning-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .learning-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    border-radius: 4px;
+  }
+
+  .learning-icon { font-family: var(--mono); font-size: 1.5rem; color: var(--accent); margin-bottom: 0.75rem; }
+  .learning-title { font-size: 13px; font-weight: 500; margin-bottom: 0.4rem; }
+  .learning-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* LINKS */
+  .project-links { display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; font-weight: 500; }
+  .btn-primary:hover { background: #00dd77; }
+  .btn-outline { border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .container { padding: 7rem 1.5rem 3rem; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">MG.dev</a>
+  <a href="index.html" class="nav-back">← back to portfolio</a>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="project-label">// systems programming — Oct 2025 — Nov 2025</div>
+  <h1 class="project-title">Custom <span>Memory Allocator</span><br>malloc & free from Scratch</h1>
+
+  <div class="project-meta">
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">C (C11)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Heap Size</span>
+      <span class="meta-value">64 KB static</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Algorithm</span>
+      <span class="meta-value">First-fit + coalescing</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Test Cycles</span>
+      <span class="meta-value">10,000+ ops</span>
+    </div>
+  </div>
+
+  <div class="project-tags">
+    <span class="tag">C</span>
+    <span class="tag">Memory Management</span>
+    <span class="tag">First-Fit</span>
+    <span class="tag">Coalescing</span>
+    <span class="tag">Block Splitting</span>
+    <span class="tag">Linked List</span>
+    <span class="tag">Heap</span>
+    <span class="tag">Embedded</span>
+    <span class="tag">Profiling</span>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="section">
+    <div class="section-label">01 — motivation</div>
+    <div class="section-title">Why build malloc from scratch?</div>
+    <p>In embedded systems, dynamic memory allocation using the standard malloc and free is often a liability. It can fragment memory unpredictably, introduce non-deterministic timing, and depends on OS features that aren't available on bare-metal targets. For safety-critical firmware — device controllers, automotive ECUs, storage systems — you need <strong>deterministic behavior and complete control over memory usage.</strong></p>
+    <p>This project builds a custom allocator on a fixed-size 64 KB static heap with no OS dependencies. Every allocation and free is controlled, measurable, and predictable. The goal was to understand what malloc actually does under the hood — block headers, splitting, coalescing, fragmentation — and build it from first principles in pure C.</p>
+  </div>
+
+  <!-- PERFORMANCE -->
+  <div class="section">
+    <div class="section-label">02 — performance</div>
+    <div class="section-title">Measured across 10,000+ operations</div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value">64KB</div>
+        <div class="metric-label">Heap Size</div>
+        <div class="metric-desc">static array</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">~1.4µs</div>
+        <div class="metric-label">Avg Latency</div>
+        <div class="metric-desc">per alloc/free op</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">~33%</div>
+        <div class="metric-label">Peak Fragmentation</div>
+        <div class="metric-desc">simulated load</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">~82%</div>
+        <div class="metric-label">Memory Utilization</div>
+        <div class="metric-desc">after stress test</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="section">
+    <div class="section-label">03 — how it works</div>
+    <div class="section-title">The heap, the header, and the linked list</div>
+
+    <p>The entire heap is a <strong>statically allocated 64 KB array</strong>. It's divided into blocks organized as a singly linked list. Every block — whether free or used — starts with a 12-byte header.</p>
+
+    <div class="highlight-card">
+      <div class="highlight-title">// block header — 12 bytes</div>
+      <p><strong>size (4 bytes)</strong> — total size of this block including the header</p>
+      <p><strong>is_free (4 bytes)</strong> — allocation flag: 1 = free, 0 = used</p>
+      <p><strong>next (4 bytes)</strong> — pointer to the next block in the list</p>
+    </div>
+
+    <p>The linked list structure means you can traverse the entire heap by following next pointers from the start. Allocation, splitting, and coalescing all work by walking this list and manipulating headers in place — no external data structures needed.</p>
+
+    <div class="heap-diagram">
+      <div class="heap-label">// heap layout after a few allocations</div>
+      <div class="heap-row">
+        <div class="heap-block header">HDR</div>
+        <div class="heap-block used">USED — 256B</div>
+        <div class="heap-block header">HDR</div>
+        <div class="heap-block free">FREE — 512B</div>
+        <div class="heap-block header">HDR</div>
+        <div class="heap-block used">USED — 128B</div>
+        <div class="heap-block header">HDR</div>
+        <div class="heap-block free">FREE — rest</div>
+      </div>
+      <div style="font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 0.75rem;">
+        // each block = 12B header + payload — linked via next pointer
+      </div>
+    </div>
+  </div>
+
+  <!-- ALLOCATION -->
+  <div class="section">
+    <div class="section-label">04 — allocation & freeing</div>
+    <div class="section-title">First-fit, splitting, and coalescing</div>
+
+    <div class="arch-diagram">
+<span class="hi">// malloc(size)</span>
+Start at heap base
+    │
+    ▼
+Walk linked list looking for <span class="hi">free block >= requested size</span>
+    │
+    ├── block too small → skip, move to next
+    │
+    ├── block exact size → mark USED, return payload pointer
+    │
+    └── block larger than needed →
+            <span class="hi2">SPLIT</span> only if leftover >= 12B header + min payload
+            │  block[0..size] → mark USED
+            │  block[size..end] → new FREE block with its own header
+            └── return payload pointer
+
+<span class="hi">// free(ptr)</span>
+Mark block as FREE
+    │
+    ▼
+Traverse full list looking for <span class="hi2">adjacent free blocks</span>
+    │
+    └── if block[i] FREE and block[i+1] FREE →
+            <span class="hi">COALESCE</span>: merge into one larger free block
+            update block[i].size, update block[i].next
+            repeat until no more adjacent free pairs
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">malloc_free.c — block header and allocation</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">typedef struct</span> Block {
+    <span class="kw">size_t</span>        size;     <span class="cm">// total block size including header</span>
+    <span class="kw">int</span>           is_free;  <span class="cm">// 1 = free, 0 = used</span>
+    <span class="kw">struct</span> Block* next;    <span class="cm">// next block in linked list</span>
+} Block;
+
+<span class="kw">#define</span> <span class="ac">HEAP_SIZE</span>   <span class="nm">65536</span>   <span class="cm">// 64 KB</span>
+<span class="kw">#define</span> <span class="ac">HEADER_SIZE</span> <span class="kw">sizeof</span>(Block)  <span class="cm">// 12 bytes</span>
+
+<span class="kw">static char</span> heap[<span class="ac">HEAP_SIZE</span>];  <span class="cm">// static — no OS dependency</span>
+<span class="kw">static</span> Block* free_list = (<span class="kw">Block</span>*)heap;
+
+<span class="kw">void</span>* <span class="fn">my_malloc</span>(<span class="kw">size_t</span> size) {
+    Block* curr = free_list;
+
+    <span class="kw">while</span> (curr) {
+        <span class="kw">if</span> (curr->is_free && curr->size >= size + <span class="ac">HEADER_SIZE</span>) {
+            <span class="cm">// split if leftover is large enough for a new block</span>
+            <span class="kw">if</span> (curr->size >= size + <span class="ac">HEADER_SIZE</span> * <span class="nm">2</span>) {
+                Block* split = (Block*)((char*)curr + <span class="ac">HEADER_SIZE</span> + size);
+                split->size    = curr->size - size - <span class="ac">HEADER_SIZE</span>;
+                split->is_free = <span class="nm">1</span>;
+                split->next    = curr->next;
+                curr->next     = split;
+                curr->size     = size + <span class="ac">HEADER_SIZE</span>;
+            }
+            curr->is_free = <span class="nm">0</span>;
+            <span class="kw">return</span> (char*)curr + <span class="ac">HEADER_SIZE</span>;  <span class="cm">// return payload pointer</span>
+        }
+        curr = curr->next;
+    }
+    <span class="kw">return</span> <span class="nm">NULL</span>;  <span class="cm">// out of memory</span>
+}</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">malloc_free.c — free with coalescing</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">void</span> <span class="fn">my_free</span>(<span class="kw">void</span>* ptr) {
+    <span class="kw">if</span> (!ptr) <span class="kw">return</span>;
+
+    Block* block = (Block*)((char*)ptr - <span class="ac">HEADER_SIZE</span>);
+    block->is_free = <span class="nm">1</span>;
+
+    <span class="cm">// coalesce adjacent free blocks</span>
+    Block* curr = free_list;
+    <span class="kw">while</span> (curr && curr->next) {
+        <span class="kw">if</span> (curr->is_free && curr->next->is_free) {
+            <span class="cm">// merge curr and curr->next into one block</span>
+            curr->size += curr->next->size;
+            curr->next  = curr->next->next;
+        } <span class="kw">else</span> {
+            curr = curr->next;
+        }
+    }
+}</pre>
+    </div>
+  </div>
+
+  <!-- DESIGN DECISIONS -->
+  <div class="section">
+    <div class="section-label">05 — design decisions</div>
+    <div class="section-title">Why these choices</div>
+
+    <div class="decisions">
+      <div class="decision-card">
+        <div class="decision-q">Why first-fit instead of best-fit?</div>
+        <div class="decision-a">First-fit stops at the first block large enough for the request. Best-fit scans the entire list to find the smallest sufficient block. For embedded systems, first-fit wins on speed and determinism — it's O(n) in the worst case but exits early in practice. Best-fit produces less fragmentation but its O(n) worst case always hits. For real-time systems, predictable timing matters more than minimal fragmentation.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why a static heap instead of dynamic growth?</div>
+        <div class="decision-a">On embedded targets there's no OS to request more memory from. A fixed static array means the memory budget is known at compile time — critical for safety-critical systems where you need to prove the firmware won't exceed available RAM. It also eliminates sbrk() and mmap() dependencies entirely.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why coalesce on every free?</div>
+        <div class="decision-a">Without coalescing, repeated alloc/free cycles fragment the heap into tiny unusable blocks. Coalescing on every free keeps the heap healthy — adjacent free blocks are always merged immediately. The cost is a full list traversal on each free, but for a 64KB heap with small block counts this is acceptable and the fragmentation benefit is significant.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why a 12-byte header?</div>
+        <div class="decision-a">Size (4B) + is_free flag (4B) + next pointer (4B) = 12 bytes. The size field lets you jump to the next block without following the pointer — useful for coalescing. The next pointer keeps the linked list traversal explicit. On 32-bit embedded targets, 4 bytes per field is natural alignment.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILER -->
+  <div class="section">
+    <div class="section-label">06 — profiling</div>
+    <div class="section-title">How performance was measured</div>
+    <p>A custom profiling tool was written alongside the allocator to measure behavior under stress. It runs 10,000+ randomized allocation and free cycles, tracking allocation latency, peak fragmentation, and memory utilization at each step.</p>
+    <p><strong>Fragmentation measurement:</strong> largest free block / total free memory. A ratio close to 1 means memory is healthy — one large contiguous free region. A ratio close to 0 means heavy fragmentation — many small unusable blocks.</p>
+    <p>After the stress test, the allocator achieved ~82% memory utilization with ~33% peak fragmentation — meaning coalescing was effective at keeping the heap usable throughout the test.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">terminal — build and run</span>
+        <span class="code-lang">bash</span>
+      </div>
+      <pre>gcc -std=c11 -Wall malloc_free.c -o malloc_free
+./malloc_free > heap_output.txt</pre>
+    </div>
+  </div>
+
+  <!-- LEARNINGS -->
+  <div class="section">
+    <div class="section-label">07 — takeaways</div>
+    <div class="section-title">What I learned</div>
+
+    <div class="learning-grid">
+      <div class="learning-card">
+        <div class="learning-icon">//</div>
+        <div class="learning-title">What malloc actually does</div>
+        <div class="learning-desc">Block headers, linked lists, splitting, coalescing — the standard library malloc implements these same concepts, just with more edge cases and optimizations.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">{}</div>
+        <div class="learning-title">Fragmentation is real</div>
+        <div class="learning-desc">33% peak fragmentation on a simple first-fit allocator shows why embedded systems avoid dynamic allocation. A fragmented heap can fail an allocation even with plenty of total free memory.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">~~</div>
+        <div class="learning-title">Determinism vs efficiency</div>
+        <div class="learning-desc">First-fit trades optimal packing for speed and predictability. In embedded firmware, knowing the worst-case timing matters more than squeezing out the last byte of utilization.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">!!</div>
+        <div class="learning-title">Embedded memory constraints</div>
+        <div class="learning-desc">No OS, no sbrk(), no virtual memory — you work with exactly what you have. Static allocation forces you to think carefully about memory budgets at design time.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="project-links">
+    <a href="https://github.com/manojg24/Malloc-and-free" class="btn btn-primary" target="_blank">View on GitHub</a>
+    <a href="index.html" class="btn btn-outline">← Back to Portfolio</a>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimizing Compiler — Manoj Gangaraja</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+  }
+
+  .nav-back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--accent); }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 8rem 3rem 5rem;
+  }
+
+  .project-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .project-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-title span { color: var(--accent); }
+
+  .project-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+    padding-bottom: 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 15px;
+    color: #aaa;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  p strong { color: var(--text); font-weight: 500; }
+
+  /* PIPELINE */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 1.5rem 0;
+  }
+
+  .pipeline-stage {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 1.5rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .pipeline-stage:last-child { border-bottom: none; }
+
+  .stage-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+
+  .stage-content { }
+
+  .stage-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+
+  .stage-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.6;
+  }
+
+  /* ARCH DIAGRAM */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #888;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .arch-diagram .hi { color: var(--accent); }
+  .arch-diagram .hi2 { color: var(--accent2); }
+  .arch-diagram .warn { color: #ffaa00; }
+
+  /* OPT TABLE */
+  .opt-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+    width: 100%;
+  }
+
+  .opt-table-header {
+    display: grid;
+    grid-template-columns: 80px 180px 1fr;
+    padding: 0.6rem 1.25rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    gap: 1rem;
+  }
+
+  .opt-row {
+    display: grid;
+    grid-template-columns: 80px 180px 1fr;
+    padding: 0.6rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
+    align-items: center;
+  }
+  .opt-row:last-child { border-bottom: none; }
+  .opt-row:hover { background: var(--surface2); }
+
+  .opt-flag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .opt-name {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .opt-desc {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-filename {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  pre {
+    padding: 1.5rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: #ccc;
+  }
+
+  .kw { color: #ff79c6; }
+  .cm { color: #555; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .nm { color: #bd93f9; }
+  .st { color: #f1fa8c; }
+  .ac { color: var(--accent); }
+
+  /* HIGHLIGHT CARDS */
+  .highlight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1.5rem 0;
+  }
+
+  .highlight-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .highlight-card p { font-size: 14px; margin-bottom: 0.5rem; }
+  .highlight-card p:last-child { margin-bottom: 0; }
+
+  /* HONEST NOTE */
+  .honest-note {
+    background: rgba(255,170,0,0.06);
+    border: 1px solid rgba(255,170,0,0.2);
+    border-left: 3px solid #ffaa00;
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1.5rem 0;
+  }
+
+  .honest-note-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #ffaa00;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .honest-note p { font-size: 14px; color: #aaa; margin-bottom: 0; }
+
+  /* DECISIONS */
+  .decisions { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .decision-q {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .decision-a { font-size: 14px; color: #aaa; line-height: 1.6; }
+
+  /* LEARNING GRID */
+  .learning-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .learning-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    border-radius: 4px;
+  }
+
+  .learning-icon { font-family: var(--mono); font-size: 1.5rem; color: var(--accent); margin-bottom: 0.75rem; }
+  .learning-title { font-size: 13px; font-weight: 500; margin-bottom: 0.4rem; }
+  .learning-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* LINKS */
+  .project-links { display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; font-weight: 500; }
+  .btn-primary:hover { background: #00dd77; }
+  .btn-outline { border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .container { padding: 7rem 1.5rem 3rem; }
+    .pipeline-stage { grid-template-columns: 1fr; gap: 0.5rem; }
+    .opt-table-header { display: none; }
+    .opt-row { grid-template-columns: 80px 1fr; }
+    .opt-desc { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">MG.dev</a>
+  <a href="index.html" class="nav-back">← back to portfolio</a>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="project-label">// compilers — Sep 2025 — Dec 2025</div>
+  <h1 class="project-title">Mocha — <span>Optimizing Compiler</span><br>for a C-like Language</h1>
+
+  <div class="project-meta">
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">Java</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Target</span>
+      <span class="meta-value">DLX (MIPS-like)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">IR</span>
+      <span class="meta-value">Three-Address-Code (TAC)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Test Pass Rate</span>
+      <span class="meta-value">~80% private cases</span>
+    </div>
+  </div>
+
+  <div class="project-tags">
+    <span class="tag">Java</span>
+    <span class="tag">Compiler</span>
+    <span class="tag">AST</span>
+    <span class="tag">TAC IR</span>
+    <span class="tag">CFG</span>
+    <span class="tag">Graph Coloring</span>
+    <span class="tag">Register Allocation</span>
+    <span class="tag">Liveness Analysis</span>
+    <span class="tag">DLX</span>
+    <span class="tag">Optimization</span>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="section">
+    <div class="section-label">01 — motivation</div>
+    <div class="section-title">Why I built this</div>
+    <p>This was a semester-long project for my Compiler Design course at Texas A&M. The goal was to build a complete compiler from scratch — not just a toy lexer, but the full pipeline from source code to executable machine instructions.</p>
+    <p>What drew me to this project was understanding <strong>what a compiler actually does between the source code you write and the binary that runs</strong>. Every optimization, every register decision, every branch — the compiler made those choices. Building it yourself is the only way to understand why.</p>
+    <p>The two parts I found most interesting were the <strong>optimization pipeline</strong> — how you can eliminate dead code and propagate constants across an entire program — and <strong>graph-coloring register allocation</strong>, which turns the abstract problem of "which variable goes in which register" into a graph theory problem.</p>
+  </div>
+
+  <!-- PIPELINE OVERVIEW -->
+  <div class="section">
+    <div class="section-label">02 — compilation pipeline</div>
+    <div class="section-title">Source code to machine instructions — end to end</div>
+
+    <div class="arch-diagram">
+<span class="hi">// MOCHA COMPILATION PIPELINE</span>
+
+<span class="hi2">source.mocha</span>  (C-like language)
+    │
+    ▼
+<span class="hi">Lexer + Parser</span>
+    │  tokenize → parse → build parse tree
+    ▼
+<span class="hi">AST Construction</span>   (mocha/AST.java)
+    │  typed nodes: expressions, statements, functions, arrays
+    ▼
+<span class="hi">Type Checker</span>
+    │  arithmetic rules, float-int coercions
+    │  function param types, return types, array indexing
+    ▼
+<span class="hi">TAC IR Generation</span>
+    │  Three-Address-Code in SSA-like form
+    │  arithmetic, boolean, comparisons, branches, calls
+    ▼
+<span class="hi">CFG Construction</span>
+    │  basic blocks with predecessor/successor lists
+    │  branch structure, empty block merging
+    │  unreachable block elimination
+    ▼
+<span class="hi">Optimization Passes</span>   (local + global)
+    │  CP, CPP, CF, CSE, DCE, GCP, inlining, -max mode
+    ▼
+<span class="hi">Liveness Analysis</span>
+    │  live variable sets per basic block
+    ▼
+<span class="hi">Register Allocation</span>   (graph coloring)
+    │  interference graph → simplify → color → spill
+    │  R1–R27 machine registers, M_x for spills
+    ▼
+<span class="hi">DLX Code Generation</span>
+    │  TAC → ADD, SUB, MUL, DIV, fADD, BEQ, BNE, JSR...
+    │  PC-relative branch offsets, float literal packing
+    ▼
+<span class="hi2">DLX machine instructions</span>
+    │  executed by DLX.java simulator
+    ▼
+<span class="warn">output</span>
+    </div>
+  </div>
+
+  <!-- PIPELINE STAGES -->
+  <div class="section">
+    <div class="section-label">03 — each stage explained</div>
+    <div class="section-title">What happens at every step</div>
+
+    <div class="pipeline">
+
+      <div class="pipeline-stage">
+        <div class="stage-label">Front End</div>
+        <div class="stage-content">
+          <div class="stage-title">Lexer, Parser, AST</div>
+          <p class="stage-desc">Hand-written lexer tokenizes the source. The parser builds a full AST hierarchy covering integer, float, and boolean types, arithmetic and boolean expressions, if/while/repeat loops, first-class functions, multidimensional arrays, return statements, and built-in I/O. Type checking runs on the AST — enforcing arithmetic rules, float-int coercions, function parameter types, and return type validation.</p>
+        </div>
+      </div>
+
+      <div class="pipeline-stage">
+        <div class="stage-label">IR</div>
+        <div class="stage-content">
+          <div class="stage-title">Three-Address-Code + Control Flow Graph</div>
+          <p class="stage-desc">The AST is lowered to TAC — a simplified intermediate representation where each instruction has at most three operands. Instructions are grouped into BasicBlocks with explicit predecessor and successor lists, forming the CFG. The IR is printable as a DOT graph for debugging. CFG tools handle empty block merging, unreachable block elimination, and branch simplification.</p>
+        </div>
+      </div>
+
+      <div class="pipeline-stage">
+        <div class="stage-label">Optimizations</div>
+        <div class="stage-content">
+          <div class="stage-title">Local + Global Optimization Pipeline</div>
+          <p class="stage-desc">Multiple optimization passes run on the IR. Local passes operate within basic blocks. Global passes (GCP, function inlining) operate across the entire program. A fixpoint loop repeats passes until the IR stops changing. The -max mode runs the full recommended pipeline automatically.</p>
+        </div>
+      </div>
+
+      <div class="pipeline-stage">
+        <div class="stage-label">Reg Alloc</div>
+        <div class="stage-content">
+          <div class="stage-title">Graph-Coloring Register Allocation</div>
+          <p class="stage-desc">Liveness analysis computes which variables are live at each program point. An interference graph is built — two variables interfere if they're both live at the same time and can't share a register. The graph is colored using Chaitin's algorithm: simplify (remove low-degree nodes), color, and spill if coloring fails. Spilled values go to memory locations (M_x). After allocation, silly self-moves (mov R# → R#) are removed.</p>
+        </div>
+      </div>
+
+      <div class="pipeline-stage">
+        <div class="stage-label">Code Gen</div>
+        <div class="stage-content">
+          <div class="stage-title">DLX Machine Code Generation</div>
+          <p class="stage-desc">TAC instructions are translated to DLX machine code — a MIPS-like architecture. Integer ops map to ADD/SUB/MUL/DIV, float ops to fADD/fSUB/fMUL/fDIV. Comparisons use subtract + branch. Float literals are packed using FP16/FP32. Function calls use JSR with return values in R27. Branch offsets are PC-relative. The output is executed by the provided DLX.java simulator.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- OPTIMIZATIONS -->
+  <div class="section">
+    <div class="section-label">04 — optimization passes</div>
+    <div class="section-title">What each pass does</div>
+
+    <div class="opt-table">
+      <div class="opt-table-header">
+        <span>Flag</span>
+        <span>Optimization</span>
+        <span>What it does</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">cp</span>
+        <span class="opt-name">Copy Propagation</span>
+        <span class="opt-desc">Replaces uses of copied variables with the original</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">cpp</span>
+        <span class="opt-name">Constant Propagation</span>
+        <span class="opt-desc">Replaces variables with known constant values</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">cf</span>
+        <span class="opt-name">Control-Flow Simplification</span>
+        <span class="opt-desc">Eliminates unreachable branches and simplifies jumps</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">cse</span>
+        <span class="opt-name">Common Subexpression Elimination</span>
+        <span class="opt-desc">Reuses previously computed expressions instead of recomputing</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">dce</span>
+        <span class="opt-name">Dead Code Elimination</span>
+        <span class="opt-desc">Removes instructions whose results are never used</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">cfg</span>
+        <span class="opt-name">CFG Cleanup</span>
+        <span class="opt-desc">Removes empty and unreachable blocks from the graph</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">ofe</span>
+        <span class="opt-name">Orphan Function Elimination</span>
+        <span class="opt-desc">Removes functions that are never called</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">GCP</span>
+        <span class="opt-name">Global Constant Propagation</span>
+        <span class="opt-desc">Propagates constants across function boundaries — global scope</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">inline</span>
+        <span class="opt-name">Function Inlining</span>
+        <span class="opt-desc">Replaces small function calls with their bodies — eliminates call overhead</span>
+      </div>
+      <div class="opt-row">
+        <span class="opt-flag">-max</span>
+        <span class="opt-name">Full Pipeline</span>
+        <span class="opt-desc">cp → cpp → cf → cse → dce → cfg → ofe → merge → GCP → inlining → DCE → CFG</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEEP DIVE — REGISTER ALLOCATION -->
+  <div class="section">
+    <div class="section-label">05 — deep dive</div>
+    <div class="section-title">Graph-coloring register allocation — the hardest part</div>
+
+    <p>Register allocation is one of the classic hard problems in compiler design. You have an unlimited number of virtual variables in the IR, but only a fixed number of physical registers (R1–R27 in DLX). The question is: which variable goes in which register, and what do you do when you run out?</p>
+
+    <div class="highlight-card">
+      <div class="highlight-title">// how graph coloring works</div>
+      <p><strong>Step 1 — Liveness analysis:</strong> For every point in the program, compute which variables are "live" — meaning they hold a value that will be used later. This requires a backwards dataflow analysis over the CFG.</p>
+      <p><strong>Step 2 — Interference graph:</strong> Two variables interfere if they are both live at the same time — meaning they can't share a register. Build a graph where nodes are variables and edges connect interfering pairs.</p>
+      <p><strong>Step 3 — Graph coloring:</strong> Assign colors (registers) to nodes such that no two adjacent nodes share a color. This is NP-complete in general, so we use Chaitin's heuristic — repeatedly remove the lowest-degree node (it's easiest to color), then color in reverse order.</p>
+      <p><strong>Step 4 — Spilling:</strong> If a node can't be colored (too many neighbors), spill it — store it in memory (M_x) instead of a register. Insert loads and stores around each use.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">register allocation — before and after</span>
+        <span class="code-lang">TAC → DLX</span>
+      </div>
+      <pre><span class="cm">// TAC IR (after optimization)</span>
+a = b + c
+d = a * 2
+e = d - b
+<span class="fn">return</span> e
+
+<span class="cm">// after liveness analysis</span>
+<span class="cm">// a: live at lines 2-3, b: live at 1,3, c: live at 1, d: live at 3, e: live at 4</span>
+
+<span class="cm">// interference graph edges: a-b, a-d, b-d, b-e, d-e</span>
+<span class="cm">// color with 3 registers: a=R1, b=R2, c=R3, d=R4, e=R1 (a is dead)</span>
+
+<span class="cm">// DLX output</span>
+ADD  R1, R2, R3    <span class="cm">// a = b + c</span>
+MULI R4, R1, 2    <span class="cm">// d = a * 2</span>
+SUB  R1, R4, R2   <span class="cm">// e = d - b (reuse R1, a is dead)</span>
+RET  31           <span class="cm">// return e in R1</span></pre>
+    </div>
+
+    <div class="honest-note">
+      <div class="honest-note-title">// honest note on SSA</div>
+      <p>The IR is TAC in an SSA-like form — but true SSA with proper phi-function insertion was not fully implemented. The optimizer and register allocator work on the TAC CFG directly. This contributed to some edge cases in register allocation that caused roughly 20% of private test cases to fail. The core pipeline — parsing, optimization, code generation — works correctly on well-formed programs.</p>
+    </div>
+  </div>
+
+  <!-- WHAT WORKS -->
+  <div class="section">
+    <div class="section-label">06 — results</div>
+    <div class="section-title">What works, what doesn't</div>
+
+    <div class="decisions">
+      <div class="decision-card">
+        <div class="decision-q">What works well</div>
+        <div class="decision-a">Full front end — lexing, parsing, AST construction, type checking. Complete optimization pipeline including GCP and function inlining. Graph-coloring register allocation on the majority of programs. DLX code generation for integer and float arithmetic, control flow, and function calls. Passed approximately 80% of private test cases.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Known limitations</div>
+        <div class="decision-a">SSA phi-function insertion is simplified — not fully correct in all cases. This causes some register allocation edge cases to fail, particularly around loop-carried dependencies and complex control flow. The remaining ~20% of test failures trace back to these register allocation issues.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">What I would fix</div>
+        <div class="decision-a">Proper phi-function insertion at CFG join points — this is the foundation SSA is built on and getting it right would fix most of the remaining failures. After that, a more sophisticated spilling heuristic (frequency-based rather than highest-degree) would reduce unnecessary memory traffic.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEARNINGS -->
+  <div class="section">
+    <div class="section-label">07 — takeaways</div>
+    <div class="section-title">What I learned</div>
+
+    <div class="learning-grid">
+      <div class="learning-card">
+        <div class="learning-icon">//</div>
+        <div class="learning-title">Compiler pipeline</div>
+        <div class="learning-desc">Every stage — lexer, parser, AST, IR, optimizer, register allocator, code gen — has a precise job. A bug in any one stage propagates through everything below it.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">{}</div>
+        <div class="learning-title">Graph coloring</div>
+        <div class="learning-desc">Register allocation is a graph problem. Liveness analysis, interference graphs, Chaitin's algorithm — classical computer science applied to a real engineering problem.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">~~</div>
+        <div class="learning-title">Dataflow analysis</div>
+        <div class="learning-desc">Liveness, constant propagation, reaching definitions — all solved by iterating equations over the CFG until a fixed point. The same pattern applies to all of them.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">!!</div>
+        <div class="learning-title">IR design matters</div>
+        <div class="learning-desc">The quality of your IR determines how easy optimization and code generation are. SSA makes many analyses trivial. Getting it wrong early costs you everywhere downstream.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="project-links">
+    <a href="https://github.com/manojg24/A-complete-optimizing-compiler" class="btn btn-primary" target="_blank">View on GitHub</a>
+    <a href="index.html" class="btn btn-outline">← Back to Portfolio</a>
+  </div>
+
+</div>
+
+</body>
+</html>
