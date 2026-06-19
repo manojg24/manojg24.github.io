@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAN Bus Driver — Manoj Gangaraja</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+  }
+
+  .nav-back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--accent); }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 8rem 3rem 5rem;
+  }
+
+  .project-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .project-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-title span { color: var(--accent); }
+
+  .project-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item { display: flex; flex-direction: column; gap: 3px; }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .meta-value { font-family: var(--mono); font-size: 13px; color: var(--text); }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+    padding-bottom: 4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  p { font-size: 15px; color: #aaa; line-height: 1.8; margin-bottom: 1rem; }
+  p strong { color: var(--text); font-weight: 500; }
+
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #888;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .arch-diagram .hi { color: var(--accent); }
+  .arch-diagram .hi2 { color: var(--accent2); }
+  .arch-diagram .warn { color: #ffaa00; }
+
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-filename { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.05em; }
+  .code-lang { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  pre { padding: 1.5rem; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.8; color: #ccc; }
+
+  .kw { color: #ff79c6; }
+  .cm { color: #555; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .nm { color: #bd93f9; }
+  .st { color: #f1fa8c; }
+  .ac { color: var(--accent); }
+
+  .decisions { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .decision-q {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .decision-a { font-size: 14px; color: #aaa; line-height: 1.6; }
+
+  .bug-card {
+    background: rgba(255,100,100,0.06);
+    border: 1px solid rgba(255,100,100,0.2);
+    border-left: 3px solid #ff6464;
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 4px 4px 0;
+    margin: 1.5rem 0;
+  }
+
+  .bug-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #ff6464;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .bug-card p { font-size: 14px; margin-bottom: 0.5rem; }
+  .bug-card p:last-child { margin-bottom: 0; }
+
+  .learning-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .learning-card { background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; border-radius: 4px; }
+  .learning-icon { font-family: var(--mono); font-size: 1.5rem; color: var(--accent); margin-bottom: 0.75rem; }
+  .learning-title { font-size: 13px; font-weight: 500; margin-bottom: 0.4rem; }
+  .learning-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .project-links { display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; font-weight: 500; }
+  .btn-primary:hover { background: #00dd77; }
+  .btn-outline { border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .container { padding: 7rem 1.5rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">MG.dev</a>
+  <a href="index.html" class="nav-back">← back to portfolio</a>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="project-label">// embedded systems — Jun 2026</div>
+  <h1 class="project-title">Bare-Metal <span>CAN Bus Driver</span><br>on STM32 Nucleo-F446RE</h1>
+
+  <div class="project-meta">
+    <div class="meta-item">
+      <span class="meta-label">Platform</span>
+      <span class="meta-value">STM32F446RE — ARM Cortex-M4</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">Pure C / arm-none-eabi-gcc</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Mode</span>
+      <span class="meta-value">bxCAN loopback, 500 kbps</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Libraries</span>
+      <span class="meta-value">None — zero HAL/CMSIS</span>
+    </div>
+  </div>
+
+  <div class="project-tags">
+    <span class="tag">C</span>
+    <span class="tag">STM32F446RE</span>
+    <span class="tag">ARM Cortex-M4</span>
+    <span class="tag">CAN</span>
+    <span class="tag">bxCAN</span>
+    <span class="tag">UART</span>
+    <span class="tag">Bare-Metal</span>
+    <span class="tag">OpenOCD</span>
+    <span class="tag">Linker Script</span>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="section">
+    <div class="section-label">01 — motivation</div>
+    <div class="section-title">Why I built this</div>
+    <p>At Continental I worked with CAN every day — but always through AUTOSAR's BSW layer. The signals just arrived; the framework handled bit timing, mailboxes, and filtering underneath. I wanted to go one level deeper and understand what AUTOSAR was actually doing for me.</p>
+    <p>I built this on the STM32F446RE — a real ARM Cortex-M4 chip, the same family used in production automotive ECUs — and configured the <strong>bxCAN peripheral directly from registers</strong>, no HAL, no CMSIS, no startup files generated by STM32CubeMX. Just the reference manual and raw memory-mapped registers.</p>
+    <p>It runs in <strong>loopback mode</strong> — no external transceiver needed. The chip transmits a CAN frame and receives it back internally, which is enough to validate the entire driver: bit timing, mailbox handling, filtering, and frame parsing.</p>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section">
+    <div class="section-label">02 — architecture</div>
+    <div class="section-title">How it works</div>
+
+    <div class="arch-diagram">
+<span class="hi">// INIT SEQUENCE</span>
+Power on
+    │
+    ▼
+RCC: enable GPIOA + CAN1 + USART2 clocks
+    │
+    ▼
+<span class="hi">CAN init mode</span> — set INRQ, wait for INAK
+    │
+    ▼
+Configure <span class="hi2">CAN_BTR</span> — prescaler, TS1, TS2 → 500 kbps
+    │  enable LBKM (loopback bit)
+    ▼
+Configure <span class="hi2">filter 0</span> — 32-bit mask mode, accept all IDs
+    │
+    ▼
+Leave CAN init mode — clear INRQ, wait for INAK clear
+    │
+    ▼
+<span class="hi">CAN is live</span>
+
+<span class="hi">// TX PATH</span>
+can_tx(id, data, len)
+    │  wait for mailbox 0 empty (TME0)
+    │  write ID → CAN_TI0R
+    │  write length → CAN_TDT0R
+    │  pack 8 bytes → CAN_TDL0R / CAN_TDH0R
+    │  set TXRQ → hardware sends frame
+    ▼
+<span class="hi2">Loopback: TX internally routed to RX</span>
+
+<span class="hi">// RX PATH</span>
+can_rx(&id, data)
+    │  check FMP bits in CAN_RF0R — message waiting?
+    │  read ID from CAN_RI0R
+    │  read length from CAN_RDT0R
+    │  unpack 8 bytes from CAN_RDL0R / CAN_RDH0R
+    │  release FIFO — set RFOM0
+    ▼
+<span class="hi2">UART (PA2) prints result to Mac terminal</span>
+    </div>
+  </div>
+
+  <!-- KEY CODE -->
+  <div class="section">
+    <div class="section-label">03 — implementation</div>
+    <div class="section-title">The interesting parts</div>
+
+    <p>Bit timing is the first real STM32-specific challenge — the baud rate depends on the actual APB1 clock, which defaults to the internal 16MHz HSI oscillator, not an assumed 45MHz:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">main.c — CAN bit timing for 500 kbps</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="cm">// baud rate = APB1_clock / (BRP × (1 + TS1 + TS2))</span>
+<span class="cm">// at 16MHz HSI: BRP=2, TS1=11, TS2=4 → 2 × 16 = 32 → 500kbps</span>
+CAN_BTR = <span class="nm">0</span>;
+CAN_BTR |= (<span class="nm">1</span> &lt;&lt; <span class="nm">30</span>);   <span class="cm">// LBKM — loopback mode</span>
+CAN_BTR |= (<span class="nm">3</span> &lt;&lt; <span class="nm">20</span>);   <span class="cm">// TS2 (register value = actual - 1)</span>
+CAN_BTR |= (<span class="nm">10</span> &lt;&lt; <span class="nm">16</span>);  <span class="cm">// TS1</span>
+CAN_BTR |= (<span class="nm">1</span> &lt;&lt; <span class="nm">0</span>);    <span class="cm">// BRP</span></pre>
+    </div>
+
+    <p>Transmission writes the CAN ID, length, and 8 data bytes directly into the mailbox registers, then requests transmission:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">main.c — can_tx()</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">void</span> <span class="fn">can_tx</span>(<span class="kw">uint32_t</span> id, <span class="kw">uint8_t</span>* data, <span class="kw">uint8_t</span> len) {
+    <span class="kw">while</span> (!(<span class="ac">CAN_TSR</span> &amp; (<span class="nm">1</span>&lt;&lt;<span class="nm">26</span>)));   <span class="cm">// wait — mailbox 0 empty (TME0)</span>
+
+    <span class="ac">CAN_TI0R</span> = <span class="nm">0</span>;
+    <span class="ac">CAN_TI0R</span> |= (id &lt;&lt; <span class="nm">21</span>);          <span class="cm">// standard 11-bit ID</span>
+    <span class="ac">CAN_TDT0R</span> = len &amp; <span class="nm">0x0F</span>;          <span class="cm">// data length code</span>
+
+    <span class="ac">CAN_TDL0R</span> = data[<span class="nm">0</span>] | (data[<span class="nm">1</span>]&lt;&lt;<span class="nm">8</span>) | (data[<span class="nm">2</span>]&lt;&lt;<span class="nm">16</span>) | (data[<span class="nm">3</span>]&lt;&lt;<span class="nm">24</span>);
+    <span class="ac">CAN_TDH0R</span> = data[<span class="nm">4</span>] | (data[<span class="nm">5</span>]&lt;&lt;<span class="nm">8</span>) | (data[<span class="nm">6</span>]&lt;&lt;<span class="nm">16</span>) | (data[<span class="nm">7</span>]&lt;&lt;<span class="nm">24</span>);
+
+    <span class="ac">CAN_TI0R</span> |= (<span class="nm">1</span>&lt;&lt;<span class="nm">0</span>);              <span class="cm">// TXRQ — request transmission</span>
+}</pre>
+    </div>
+
+    <p>Reception is the mirror image — read instead of write, unpack instead of pack:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">main.c — can_rx()</span>
+        <span class="code-lang">C</span>
+      </div>
+      <pre><span class="kw">uint8_t</span> <span class="fn">can_rx</span>(<span class="kw">uint32_t</span>* id, <span class="kw">uint8_t</span>* data) {
+    <span class="kw">if</span> (!(<span class="ac">CAN_RF0R</span> &amp; <span class="nm">0x03</span>)) <span class="kw">return</span> <span class="nm">0</span>;   <span class="cm">// FMP — no message waiting</span>
+
+    *id = (<span class="ac">CAN_RI0R</span> &gt;&gt; <span class="nm">21</span>) &amp; <span class="nm">0x7FF</span>;
+    <span class="kw">uint8_t</span> len = <span class="ac">CAN_RDT0R</span> &amp; <span class="nm">0x0F</span>;
+
+    data[<span class="nm">0</span>] = (<span class="ac">CAN_RDL0R</span> &gt;&gt; <span class="nm">0</span>)  &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">1</span>] = (<span class="ac">CAN_RDL0R</span> &gt;&gt; <span class="nm">8</span>)  &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">2</span>] = (<span class="ac">CAN_RDL0R</span> &gt;&gt; <span class="nm">16</span>) &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">3</span>] = (<span class="ac">CAN_RDL0R</span> &gt;&gt; <span class="nm">24</span>) &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">4</span>] = (<span class="ac">CAN_RDH0R</span> &gt;&gt; <span class="nm">0</span>)  &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">5</span>] = (<span class="ac">CAN_RDH0R</span> &gt;&gt; <span class="nm">8</span>)  &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">6</span>] = (<span class="ac">CAN_RDH0R</span> &gt;&gt; <span class="nm">16</span>) &amp; <span class="nm">0xFF</span>;
+    data[<span class="nm">7</span>] = (<span class="ac">CAN_RDH0R</span> &gt;&gt; <span class="nm">24</span>) &amp; <span class="nm">0xFF</span>;
+
+    <span class="ac">CAN_RF0R</span> |= (<span class="nm">1</span>&lt;&lt;<span class="nm">5</span>);   <span class="cm">// RFOM0 — release FIFO slot</span>
+    <span class="kw">return</span> len;
+}</pre>
+    </div>
+  </div>
+
+  <!-- THE BUG -->
+  <div class="section">
+    <div class="section-label">04 — the hard fault</div>
+    <div class="section-title">Debugging a crash with no debugger output</div>
+    <p>After adding UART output, the board immediately went into a hard fault — red LED, no serial output, completely unresponsive. No printf, no breakpoint hit, nothing to go on except OpenOCD's halt info.</p>
+
+    <div class="bug-card">
+      <div class="bug-title">// root cause</div>
+      <p>My linker script defined <strong>only two entries</strong> in the interrupt vector table — the initial stack pointer and the Reset_Handler. But the Cortex-M4 core fetches its <strong>NMI handler, HardFault handler, and other exception vectors</strong> from fixed offsets immediately following the reset vector (0x08, 0x0C, and onward).</p>
+      <p>With nothing there, any spurious exception — including one triggered by accessing a peripheral register before its clock was fully stable — caused the core to jump to garbage memory. That triggered a second fault while already in a fault handler, which on Cortex-M4 escalates straight into a lockup state. Hence the red LED with zero output: the chip was stuck in a fault-on-fault condition before a single line of my code even ran reliably.</p>
+      <p><strong>The fix:</strong> pad the vector table with proper stub handlers for at least the core exception vectors (NMI, HardFault, MemManage, BusFault, UsageFault) before Reset_Handler, so any unexpected exception lands somewhere safe instead of unmapped memory.</p>
+    </div>
+
+    <p>This was a useful reminder that on bare-metal ARM, <strong>the vector table isn't just "where execution starts" — it's the exception dispatch table for the entire core.</strong> Skipping entries doesn't just mean "those interrupts won't work," it means any fault that tries to use them corrupts execution silently.</p>
+  </div>
+
+  <!-- DESIGN DECISIONS -->
+  <div class="section">
+    <div class="section-label">05 — design decisions</div>
+    <div class="section-title">Why these choices</div>
+
+    <div class="decisions">
+      <div class="decision-card">
+        <div class="decision-q">Why loopback mode instead of a real CAN transceiver?</div>
+        <div class="decision-a">No external hardware needed — the bxCAN peripheral routes TX internally back to RX. This validates the entire driver logic — bit timing, mailbox handling, filtering, frame parsing — without needing a second CAN node or transceiver IC. The same driver code works unchanged with a real transceiver wired to CAN_H/CAN_L.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why a 32-bit mask filter that accepts everything?</div>
+        <div class="decision-a">The goal was to validate the driver itself, not build a production filtering scheme. Setting the filter mask to 0x00000000 means "don't care about any ID bit" — every frame passes through to FIFO 0. In a real application you'd narrow this to only the IDs your node cares about.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">Why no HAL or CMSIS?</div>
+        <div class="decision-a">Same reasoning as the UART driver — using ST's HAL means calling someone else's abstraction, not understanding the bxCAN peripheral. Direct register access through the reference manual is slower to write but the only way to actually learn what AUTOSAR's CAN driver layer is doing underneath.</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-q">What would I add next?</div>
+        <div class="decision-a">A real transceiver (e.g. TJA1050) to test on an actual two-wire CAN bus instead of loopback. Interrupt-driven RX using CAN_RX0_IRQHandler instead of polling FMP bits. Extended (29-bit) ID support alongside standard IDs.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEARNINGS -->
+  <div class="section">
+    <div class="section-label">06 — takeaways</div>
+    <div class="section-title">What I learned</div>
+
+    <div class="learning-grid">
+      <div class="learning-card">
+        <div class="learning-icon">//</div>
+        <div class="learning-title">bxCAN at register level</div>
+        <div class="learning-desc">Bit timing math, mailbox structure, FIFO handling — the layer that AUTOSAR's CAN driver sits on top of, now demystified.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">{}</div>
+        <div class="learning-title">ARM Cortex-M4 fundamentals</div>
+        <div class="learning-desc">First project on a 32-bit ARM core — RCC clock gating, GPIO alternate functions, and a much larger register map than 8-bit AVR.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">!!</div>
+        <div class="learning-title">The vector table is not optional</div>
+        <div class="learning-desc">Every exception vector needs a real handler, even a stub. Skipping entries doesn't disable those interrupts — it turns any fault into a silent lockup.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-icon">~~</div>
+        <div class="learning-title">Debugging without visibility</div>
+        <div class="learning-desc">No UART output meant no printf — had to reason from OpenOCD's halt state and strip the program down to the bare minimum to isolate the fault.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="project-links">
+    <a href="https://github.com/manojg24/CAN_bus_driver" class="btn btn-primary" target="_blank">View on GitHub</a>
+    <a href="index.html" class="btn btn-outline">← Back to Portfolio</a>
+  </div>
+
+</div>
+
+</body>
+</html>
